@@ -29,6 +29,11 @@ Your job each turn: read the current `process.py`, the latest evaluation, and th
 
 Respond with **exactly one** tool call to `propose_iteration`. Do not write prose outside the tool call. Do not wrap the `process_py` argument in markdown fences — it is the raw file contents.
 
-`predicted_delta` is your honest estimate of how much `overall` score will change vs. the parent. Negative values are allowed if you're deliberately exploring.
+The fields in the tool call serve distinct purposes — do not merge them:
 
-`expected_failure_modes` is a short list of ways your hypothesis could be wrong. This is how we tell whether you're thinking or guessing.
+- **`rationale`** (3–6 sentences): your *reasoning* — the evidence-backed explanation of why you picked THIS experiment over any other. Reference specific per-doc failures, specific score patterns, specific prior iterations. If the reviewer can't tell from your rationale what signal in the data drove you, you are guessing.
+- **`hypothesis`** (1–3 sentences): the falsifiable *claim* being tested, in the form "Doing X will improve Y because Z." Short. Specific. Testable by the next eval.
+- **`predicted_delta`**: your honest numeric estimate of how much `overall` will change vs. the parent. Negative values are allowed if you're deliberately exploring.
+- **`expected_failure_modes`**: a short list of concrete ways this hypothesis could turn out wrong. This is how we tell whether you're thinking or guessing.
+
+The operator is watching the frontier budget. Every token you spend here must earn its cost in insight — if two consecutive iterations have thin rationales, the run will be cancelled.

@@ -199,7 +199,29 @@ def _inspect_iter(store: RunStore, iter_n: int) -> None:
     console().print(f"[bold]{store.run_id} / iter {iter_n}[/bold]")
     console().print(f"  parent: {parent_txt}")
     console().print(f"  strategy: {strategy}")
-    if hyp:
+
+    # Full proposal (rationale + failure modes) if we have it
+    prop_path = d / "proposal.json"
+    if prop_path.exists():
+        prop = json.loads(prop_path.read_text())
+        if prop.get("rationale"):
+            console().print("\n[bold magenta]rationale:[/bold magenta]")
+            for line in prop["rationale"].splitlines():
+                console().print(f"  {line}")
+        if prop.get("hypothesis"):
+            console().print("\n[bold]hypothesis:[/bold]")
+            for line in prop["hypothesis"].splitlines():
+                console().print(f"  {line}")
+        if prop.get("expected_failure_modes"):
+            console().print("\n[bold]expected failure modes:[/bold]")
+            for m in prop["expected_failure_modes"]:
+                console().print(f"  • {m}")
+        console().print(
+            f"\n[dim]predicted Δ: {prop.get('predicted_delta', '—')}  ·  "
+            f"tokens: {prop.get('tokens_in', 0):,} in / {prop.get('tokens_out', 0):,} out[/dim]"
+        )
+    elif hyp:
+        # Legacy runs — only hypothesis.md was written
         console().print("  hypothesis:")
         for line in hyp.splitlines():
             console().print(f"    {line}")

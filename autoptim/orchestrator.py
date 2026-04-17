@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich.table import Table
 
 from .config import TaskConfig
 from .evaluator.base import Evaluator, load_ground_truth
@@ -16,9 +19,10 @@ from .evaluator.custom import CustomEvaluator
 from .evaluator.schema_match import SchemaMatchEvaluator
 from .meta.agent import BudgetExceeded, MetaAgent, MetaCallResult, MetaValidationError
 from .runspec import IterationRecord, RunState
+from .storage.diff import unified as diff_unified
 from .storage.run_store import RunStore, new_run_id, find_latest_for_task
 from .util.cost import CostTracker
-from .util.logging import logger
+from .util.logging import console, logger
 from .worker.ollama_client import OllamaClient
 from .worker.sandbox import run_process_py
 
@@ -200,6 +204,11 @@ class Orchestrator:
 
         # Seed iteration if empty
         if not state.iters:
+            console().rule("[bold]iter 0  ·  seed baseline[/bold]")
+            console().print(
+                "[dim]Running the user-provided seed_process.py to establish a baseline score. "
+                "No meta-agent call happens for the seed.[/dim]"
+            )
             reason = self._run_iteration(
                 store, state,
                 iter_n=0,
@@ -227,29 +236,36 @@ class Orchestrator:
             parent_process_py = store.read_process(parent)
             parent_eval = store.read_eval(parent)
 
+            console().rule(f"[bold cyan]iter {iter_n}[/bold cyan]  (parent = iter {parent})")
+
             try:
-                meta_result = self.meta.propose(
-                    iter_n=iter_n,
-                    max_iters=self.task.budgets.max_iters,
-                    wall_used_h=(time.time() - wall_start) / 3600.0,
-                    wall_cap_h=self.task.budgets.wall_clock_h,
-                    cost_tracker=self.cost,
-                    parent_process_py=parent_process_py,
-                    parent_score=state.best_score,
-                    eval_json=parent_eval,
-                    history=state.iters,
-                    best=(
-                        {
-                            "iter": state.best_iter,
-                            "score": state.best_score,
-                            "hypothesis": state.iters[state.best_iter].hypothesis
-                            if state.best_iter is not None and state.best_iter < len(state.iters)
-                            else "",
-                        }
-                        if state.best_iter is not None
-                        else None
-                    ),
-                )
+                with console().status(
+                    f"[cyan]Asking {self.task.meta.model} to design iter {iter_n} "
+                    f"(${self.cost.remaining():.2f} of frontier budget left)...[/cyan]",
+                    spinner="dots",
+                ):
+                    meta_result = self.meta.propose(
+                        iter_n=iter_n,
+                        max_iters=self.task.budgets.max_iters,
+                        wall_used_h=(time.time() - wall_start) / 3600.0,
+                        wall_cap_h=self.task.budgets.wall_clock_h,
+                        cost_tracker=self.cost,
+                        parent_process_py=parent_process_py,
+                        parent_score=state.best_score,
+                        eval_json=parent_eval,
+                        history=state.iters,
+                        best=(
+                            {
+                                "iter": state.best_iter,
+                                "score": state.best_score,
+                                "hypothesis": state.iters[state.best_iter].hypothesis
+                                if state.best_iter is not None and state.best_iter < len(state.iters)
+                                else "",
+                            }
+                            if state.best_iter is not None
+                            else None
+                        ),
+                    )
             except BudgetExceeded as e:
                 reason = HaltReason("usd_cap", str(e))
                 break
@@ -257,6 +273,9 @@ class Orchestrator:
                 log.error("meta-agent invalid output: %s", e)
                 reason = HaltReason("error", f"meta-agent failed validation: {e}")
                 break
+
+            self._render_proposal(iter_n, parent, parent_process_py, meta_result)
+            store.write_iter_proposal(iter_n, _proposal_to_json(meta_result))
 
             reason = self._run_iteration(
                 store, state,
@@ -306,21 +325,34 @@ class Orchestrator:
         iter_dir = store.iter_dir(iter_n)
         t_iter = time.time()
 
-        sandbox_result = run_process_py(
-            process_py_path=iter_dir / "process.py",
-            inputs=self.inputs,
-            ctx={
-                "ollama_host": self.task.worker.ollama_host,
-                "model_hint": self.task.worker.default_model,
-            },
-            out_dir=iter_dir,
-            timeout_s=self.task.budgets.per_iter_timeout_s,
-            memory_mb=self.task.worker.memory_mb,
-        )
+        with console().status(
+            f"[cyan]Running worker (iter {iter_n}) on {len(self.inputs)} inputs "
+            f"(timeout {self.task.budgets.per_iter_timeout_s}s)...[/cyan]",
+            spinner="dots",
+        ):
+            sandbox_result = run_process_py(
+                process_py_path=iter_dir / "process.py",
+                inputs=self.inputs,
+                ctx={
+                    "ollama_host": self.task.worker.ollama_host,
+                    "model_hint": self.task.worker.default_model,
+                },
+                out_dir=iter_dir,
+                timeout_s=self.task.budgets.per_iter_timeout_s,
+                memory_mb=self.task.worker.memory_mb,
+            )
         store.write_iter_stdio(iter_n, sandbox_result.stdout, sandbox_result.stderr)
 
         if sandbox_result.error:
             # Score unknown; record and move on
+            console().print(
+                Panel.fit(
+                    f"[red]Worker failed:[/red] {sandbox_result.error}\n"
+                    + (f"\n[dim]stderr (last 20 lines):\n{_tail(sandbox_result.stderr, 20)}[/dim]" if sandbox_result.stderr else ""),
+                    title=f"iter {iter_n} — worker error",
+                    border_style="red",
+                )
+            )
             rec = IterationRecord(
                 iter=iter_n,
                 ts=_now_iso(),
@@ -411,13 +443,17 @@ class Orchestrator:
             },
         )
 
-        log.info(
-            "iter %d scored %.3f (Δ=%s, best=%.3f) — %s",
-            iter_n,
-            result.overall,
-            f"{delta:+.3f}" if delta is not None else "—",
-            state.best_score or 0.0,
-            "NEW BEST" if new_best else "kept parent",
+        self._render_eval(
+            iter_n=iter_n,
+            eval_result=result,
+            delta=delta,
+            new_best=new_best,
+            predicted_delta=predicted_delta,
+            best_score=state.best_score,
+            worker_s=sandbox_result.elapsed_s,
+            meta_tokens_in=meta_tokens_in,
+            meta_tokens_out=meta_tokens_out,
+            cumulative_usd=self.cost.spent_usd,
         )
 
         if result.overall >= self.task.metric.target:
@@ -447,6 +483,144 @@ class Orchestrator:
             "frontier_usd_spent": self.cost.spent_usd,
             "ended_ts": _now_iso(),
         }
+
+
+    # ---- rendering helpers ----
+
+    def _render_proposal(
+        self,
+        iter_n: int,
+        parent_iter: int | str,
+        parent_process_py: str,
+        meta_result: MetaCallResult,
+    ) -> None:
+        p = meta_result.proposal
+        usd_this_call = self.cost.spent_usd - (sum(i.frontier_usd for i in []) or 0)  # not meaningful across calls; use incremental from cost record below
+        # Header table
+        table = Table.grid(padding=(0, 2))
+        table.add_column(style="bold cyan")
+        table.add_column()
+        table.add_row("strategy", p.strategy_tag)
+        table.add_row("predicted Δ", f"{p.predicted_delta:+.3f}")
+        table.add_row("frontier cost", f"{meta_result.tokens_in:,} in / {meta_result.tokens_out:,} out  (cumulative ${self.cost.spent_usd:.2f})")
+        if meta_result.directive.forced_strategy:
+            table.add_row("forced axis", f"[yellow]{meta_result.directive.forced_strategy}[/yellow] (scheduler)")
+        failure_text = "\n".join(f"  • {m}" for m in p.expected_failure_modes) or "  (none given)"
+        body = (
+            f"[bold magenta]Rationale (why this experiment):[/bold magenta]\n{p.rationale}\n\n"
+            f"[bold]Hypothesis (what it will prove):[/bold]\n{p.hypothesis}\n\n"
+            f"[bold]Expected failure modes:[/bold]\n{failure_text}\n\n"
+            f"[dim]Scheduler directive:[/dim] [dim]{meta_result.directive.message}[/dim]"
+        )
+        console().print(
+            Panel.fit(
+                _rich_concat(table, body),
+                title=f"iter {iter_n} proposal  ·  from iter {parent_iter}",
+                border_style="cyan",
+            )
+        )
+        # Diff panel
+        diff = diff_unified(
+            parent_process_py,
+            p.process_py,
+            a_name=f"iter_{parent_iter}/process.py" if isinstance(parent_iter, int) else f"{parent_iter}/process.py",
+            b_name=f"iter_{iter_n:03d}/process.py",
+        )
+        if diff:
+            trimmed = _trim_diff(diff, max_lines=80)
+            console().print(
+                Panel(
+                    Syntax(trimmed, "diff", theme="ansi_dark", line_numbers=False, word_wrap=True),
+                    title="diff vs parent",
+                    border_style="dim",
+                )
+            )
+        else:
+            console().print("[dim](no textual change vs parent — meta-agent returned identical code)[/dim]")
+
+    def _render_eval(
+        self,
+        *,
+        iter_n: int,
+        eval_result: Any,
+        delta: float | None,
+        new_best: bool,
+        predicted_delta: float | None,
+        best_score: float | None,
+        worker_s: float,
+        meta_tokens_in: int,
+        meta_tokens_out: int,
+        cumulative_usd: float,
+    ) -> None:
+        # Per-doc table
+        t = Table(title=f"iter {iter_n} — per-doc scores", show_lines=False)
+        t.add_column("doc", style="cyan")
+        t.add_column("score", justify="right")
+        t.add_column("error", style="red")
+        for d in eval_result.per_doc:
+            t.add_row(d.id, f"{d.score:.3f}", d.error or "")
+        console().print(t)
+
+        # Summary line
+        target = eval_result.target
+        delta_str = f"{delta:+.3f}" if delta is not None else "—"
+        pdelta_str = f"{predicted_delta:+.3f}" if predicted_delta is not None else "—"
+        verdict = "[green bold]NEW BEST[/green bold]" if new_best else "[yellow]kept parent[/yellow]"
+        summary = (
+            f"overall = [bold]{eval_result.overall:.3f}[/bold] / target {target:.3f}   "
+            f"Δ={delta_str}  (predicted {pdelta_str})   {verdict}\n"
+            f"worker {worker_s:.1f}s  ·  frontier {meta_tokens_in:,} in / {meta_tokens_out:,} out  "
+            f"·  cumulative ${cumulative_usd:.2f}"
+        )
+        if eval_result.failures:
+            failures = "\n".join(
+                f"[red]✗[/red] [cyan]{f.id}[/cyan]: {f.summary}"
+                for f in eval_result.failures[:3]
+            )
+            summary += "\n\n[bold]worst failures:[/bold]\n" + failures
+        console().print(
+            Panel.fit(summary, title=f"iter {iter_n} result", border_style=("green" if new_best else "yellow"))
+        )
+
+
+def _proposal_to_json(meta_result: MetaCallResult) -> dict[str, Any]:
+    p = meta_result.proposal
+    return {
+        "rationale": p.rationale,
+        "hypothesis": p.hypothesis,
+        "strategy_tag": p.strategy_tag,
+        "predicted_delta": p.predicted_delta,
+        "expected_failure_modes": p.expected_failure_modes,
+        "tokens_in": meta_result.tokens_in,
+        "tokens_out": meta_result.tokens_out,
+        "scheduler": {
+            "message": meta_result.directive.message,
+            "forced_strategy": meta_result.directive.forced_strategy,
+        },
+    }
+
+
+def _rich_concat(*parts: Any) -> "Any":
+    from rich.console import Group
+    return Group(*parts)
+
+
+def _trim_diff(diff: str, max_lines: int = 80) -> str:
+    lines = diff.splitlines()
+    if len(lines) <= max_lines:
+        return diff
+    keep_head = max_lines // 2
+    keep_tail = max_lines - keep_head
+    elided = len(lines) - max_lines
+    return "\n".join(
+        lines[:keep_head]
+        + [f"... [{elided} diff lines elided; see iter_NNN/process.py on disk] ..."]
+        + lines[-keep_tail:]
+    )
+
+
+def _tail(s: str, n: int) -> str:
+    return "\n".join(s.splitlines()[-n:])
 
 
 def _now_iso() -> str:

@@ -78,6 +78,10 @@ class RunStore:
     def write_iter_eval(self, iter_n: int, eval_json: dict[str, Any]) -> None:
         _atomic_write_json(self.iter_dir(iter_n) / "eval.json", eval_json)
 
+    def write_iter_proposal(self, iter_n: int, proposal: dict[str, Any]) -> None:
+        """Full meta-agent proposal (hypothesis, strategy, predicted delta, failure modes, tokens)."""
+        _atomic_write_json(self.iter_dir(iter_n) / "proposal.json", proposal)
+
     def write_iter_timing(self, iter_n: int, timing: dict[str, Any]) -> None:
         _atomic_write_json(self.iter_dir(iter_n) / "timing.json", timing)
 

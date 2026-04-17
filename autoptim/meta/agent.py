@@ -29,9 +29,22 @@ _TOOL_DESCRIPTION = (
 _TOOL_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
+        "rationale": {
+            "type": "string",
+            "description": (
+                "Your reasoning for THIS specific experiment. Cite concrete evidence "
+                "from the latest eval or history: which per-doc failures, which "
+                "strategy gaps, which pattern in the prior scores. 3-6 sentences. "
+                "This is how the operator tells whether the frontier budget is "
+                "being spent on thinking or guessing."
+            ),
+        },
         "hypothesis": {
             "type": "string",
-            "description": "One to three sentences: the falsifiable claim this experiment tests.",
+            "description": (
+                "One to three sentences: the falsifiable claim this experiment tests. "
+                "Form: 'Doing X will cause Y because Z.'"
+            ),
         },
         "strategy_tag": {
             "type": "string",
@@ -53,6 +66,7 @@ _TOOL_SCHEMA: dict[str, Any] = {
         },
     },
     "required": [
+        "rationale",
         "hypothesis",
         "strategy_tag",
         "process_py",
@@ -64,6 +78,7 @@ _TOOL_SCHEMA: dict[str, Any] = {
 
 
 class ProposedIteration(BaseModel):
+    rationale: str = Field(min_length=20)
     hypothesis: str = Field(min_length=5)
     strategy_tag: str
     process_py: str = Field(min_length=10)

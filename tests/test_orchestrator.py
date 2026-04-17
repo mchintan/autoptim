@@ -132,6 +132,7 @@ def test_orchestrator_monotonic_with_stub(example_task: Path, tmp_path: Path, mo
     def fake_propose(self, *, iter_n, **kw):
         return MetaCallResult(
             proposal=ProposedIteration(
+                rationale=f"canned stub at iter {iter_n}: the parent eval shows 3/3 docs failing exact match; try returning canonical values.",
                 hypothesis=f"iteration {iter_n}: canned mutation",
                 strategy_tag="prompt_mutation",
                 process_py=f"def run(inputs, ctx):  # iter {iter_n}\n    return []\n",
