@@ -1,0 +1,25 @@
+name: sql_from_nl
+inputs_dir: ./inputs
+ground_truth: ./ground_truth.jsonl
+seed_process: ./seed_process.py
+
+metric:
+  type: custom
+  eval_py: ./eval.py
+  aggregate: mean_score
+  target: 0.85
+
+budgets:
+  max_iters: 20
+  wall_clock_h: 2
+  frontier_usd: 3
+  per_iter_timeout_s: 180
+
+meta:
+  provider: anthropic
+  model: claude-opus-4-7
+  max_history: 5
+
+worker:
+  ollama_host: http://localhost:11434
+  default_model: qwen2.5:7b

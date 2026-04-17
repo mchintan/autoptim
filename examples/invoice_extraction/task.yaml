@@ -1,0 +1,33 @@
+name: invoice_extraction
+inputs_dir: ./inputs
+ground_truth: ./ground_truth.jsonl
+seed_process: ./seed_process.py
+
+metric:
+  type: schema_match
+  schema:
+    invoice_no: { match: exact,    weight: 1 }
+    date:       { match: date_iso, weight: 1 }
+    vendor:     { match: fuzzy,    threshold: 0.80, weight: 1 }
+    total:      { match: numeric,  tol: 0.01,       weight: 2 }
+    currency:   { match: exact,    weight: 1 }
+  aggregate: mean_score
+  target: 0.90
+
+budgets:
+  max_iters: 30
+  wall_clock_h: 4
+  frontier_usd: 5
+  per_iter_timeout_s: 300
+
+meta:
+  provider: anthropic
+  model: claude-opus-4-7
+  max_history: 5
+  # `temperature` intentionally unset — claude-opus-4-7 rejects it.
+  # Set explicitly (e.g. 0.7) only when using a non-reasoning model like Sonnet.
+
+worker:
+  ollama_host: http://localhost:11434
+  default_model: qwen2.5:7b
+  memory_mb: 4096

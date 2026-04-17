@@ -1,0 +1,22 @@
+   Invoice — Redwood Electrical Services
+   License #EC-0042182
+   PO Box 917, Portland, OR 97204
+
+   Customer: Sunrise Cafe (Mike Lawson)
+   Work order: #RES-0248 / Invoice #2024-Q1-0617
+   Service completed: Jan 8, 2024
+
+   Labor and parts:
+     - Electrician, journeyman (5.5 hr @ $95)           $522.50
+     - Electrician, apprentice (5.5 hr @ $55)           $302.50
+     - 20A GFCI breaker                                  $48.00
+     - 12/2 Romex, 100 ft                                $89.00
+     - Misc. fittings and fasteners                      $22.80
+                                         ------------------------
+                                         Labor+parts:    $984.80
+                                         Trip charge:     $45.00
+                                         Tax (0%, OR):     $0.00
+                                         =============
+                                         Total:          $1,029.80 USD
+
+   Thank you! Payment due on receipt.

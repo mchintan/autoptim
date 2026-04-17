@@ -1,0 +1,21 @@
+=================================================
+  Meridian Consulting LLC
+  Professional Services Invoice
+=================================================
+
+Ref#: MER/2024/0477
+Issued: 04/02/2024
+Client: Nimbus Data Systems
+
+Services rendered in March 2024:
+
+  * Strategy workshop (2 days)                   $4,800.00
+  * Data architecture review                     $2,400.00
+  * Follow-up report & presentation                $900.00
+
+                              Subtotal:          $8,100.00
+                              GST (10%):           $810.00
+                              ---------
+                              Amount due:        $8,910.00 AUD
+
+Payment terms: Net 14. Wire transfer details on file.

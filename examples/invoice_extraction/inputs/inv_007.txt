@@ -1,0 +1,22 @@
+CloudForge Platform, Inc.
+Usage-based monthly invoice
+
+Account: dev@maplecroft.io
+Billing period: 2024-04-01 to 2024-04-30
+
+Invoice: CF-INV-8847  ·  Issued on 05/01/2024
+
+   Resource                        Usage         Rate       Charge
+   compute-gpu-a100 (hrs)           142.7        $2.80      $399.56
+   block-storage (GB-mo)           2,480         $0.08      $198.40
+   egress bandwidth (GB)             742         $0.09       $66.78
+   api-calls (millions)              4.2         $1.50        $6.30
+                                                            ________
+                                         Subtotal           $671.04
+                                         Discount (Startup)  -$67.10
+                                         Sales Tax (9.5%)    $57.38
+                                                            ========
+                                         Total Due          $661.32
+                                                            (USD)
+
+Auto-billed on the 5th of each month. Questions? billing@cloudforge.io

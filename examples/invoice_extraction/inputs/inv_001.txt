@@ -1,0 +1,26 @@
+ACME WIDGETS INC
+1500 Industrial Blvd, Oakland CA 94607
+
+INVOICE
+
+Invoice No.: ACM-2024-0142
+Date: 2024-03-15
+
+Bill To:
+Orion Retail Group
+42 Market Street
+Chicago IL 60601
+
+------------------------------------------------------------
+Description                     Qty    Unit Price    Amount
+------------------------------------------------------------
+14" Widget, blue                 20       $12.50     $250.00
+Mounting Bracket, steel          20        $4.25      $85.00
+Shipping                          1       $32.00      $32.00
+------------------------------------------------------------
+                                             Subtotal: $367.00
+                                             Tax (8%):  $29.36
+                                             TOTAL:    $396.36
+                                             (USD)
+
+Payment due within 30 days. Thank you for your business.

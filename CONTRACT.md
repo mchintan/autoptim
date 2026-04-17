@@ -1,0 +1,65 @@
+# Worker Contract (v1, frozen)
+
+Every `process.py` you produce MUST conform to this contract. The harness imports the file and calls `run(...)` in an isolated subprocess.
+
+## Required entrypoint
+
+```python
+def run(inputs: list[dict], ctx: dict) -> list[dict]:
+    ...
+```
+
+## Inputs
+
+`inputs` is a list of dicts, one per document/task-item:
+
+```
+{
+  "id":   str,   # stable identifier, matches ground_truth.jsonl key
+  "path": str,   # absolute path to the input file (may be PDF, image, text, ...)
+  "mime": str    # best-effort MIME type, e.g. "application/pdf", "text/plain"
+}
+```
+
+`ctx` is a dict provided by the harness:
+
+```
+{
+  "ollama_host":   str,  # e.g. "http://localhost:11434"
+  "model_hint":    str,  # default model from task.yaml, e.g. "qwen2.5:7b"
+  "scratch_dir":   str,  # an absolute path the worker may write to freely
+  "log":           callable(str) -> None,   # structured logger; survives to worker_stdout.log
+  "per_iter_timeout_s": int   # remaining wall clock budget for this call
+}
+```
+
+## Outputs
+
+Return a list of dicts, one per input, in any order:
+
+```
+{
+  "id":         str,    # MUST match an input id
+  "prediction": <JSON>  # task-defined. Structure is judged by the evaluator.
+}
+```
+
+Every input id must be represented exactly once. Missing ids count as empty predictions.
+
+## Rules
+
+1. **Determinism**: results depend only on `inputs` and `ctx`. No hidden state, no global mutation that outlives the call.
+2. **Network**: only localhost Ollama (`ctx["ollama_host"]`) is permitted. No outbound HTTP. No API-key-bearing calls.
+3. **Filesystem**: you may read `inputs[i]["path"]` and write anywhere inside `ctx["scratch_dir"]`. Do not write elsewhere.
+4. **Model choice**: use `ctx["model_hint"]` by default. You may switch to another Ollama model you have verified is locally available; if you do, `log(...)` which model and why.
+5. **Time**: must return within `ctx["per_iter_timeout_s"]`. If you parallelize, do so with `concurrent.futures`. No background threads that outlive `run`.
+6. **Failure handling**: per-document errors should be caught, logged via `ctx["log"]`, and returned as `{"id": <id>, "prediction": null}`. Do NOT raise — a raise fails the whole iteration.
+7. **No shell execution**: do not call `os.system`, `subprocess`, or similar. Python-only processing.
+8. **No eval/exec** of LLM outputs.
+
+## Encouraged patterns
+
+- Use `ollama` python package OR plain `httpx.post(ollama_host + "/api/chat", ...)`.
+- Parse LLM JSON outputs defensively: strip markdown fences, retry on parse failure with a tighter prompt.
+- Log one line per document so debugging is tractable.
+- Keep the file self-contained — no imports from other files in the run directory.

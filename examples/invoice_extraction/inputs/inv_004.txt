@@ -1,0 +1,26 @@
+Northwind Traders GmbH
+Musterstraße 15, 10115 Berlin
+USt-IdNr.: DE123456789
+
+-----------------------------------------
+RECHNUNG / INVOICE
+-----------------------------------------
+
+Invoice number:  NWT-DE-2024-0891
+Invoice date:    2024-02-28
+
+Recipient: Kellerhaus Vineyards
+           Wilhelmstraße 4
+           55294 Bodenheim
+
+    Item                               Qty    Price    Line Total
+    German oak barrel, 225L              3   €420.00   €1,260.00
+    Stainless fermentation tank, 500L    1   €3,200.00 €3,200.00
+    Delivery & installation              -          -   €450.00
+
+                                        Net:           €4,910.00
+                                        VAT (19%):       €932.90
+                                        --------------------------
+                                        TOTAL DUE:     €5,842.90 EUR
+
+Zahlungsziel / Due: 30 days.

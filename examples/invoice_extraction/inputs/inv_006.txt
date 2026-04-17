@@ -1,0 +1,23 @@
+TOKYO MACHINERY WORKS CO., LTD.
+東京機械工業株式会社 | Yokohama, Japan
+
+                         INVOICE
+
+To:    PacificRim Assembly Co.
+       San Jose, California
+
+                 Invoice #:  TMW-24-0563
+                 Date:       2024/01/18
+
+Description                          Unit      Qty      Amount
+-------------------------------------------------------------
+Precision servo motor (model SX-200)  pc         12     ¥864,000
+Replacement encoder cable             pc         12      ¥48,000
+International handling fee            lot         1      ¥35,000
+
+                                        Subtotal:      ¥947,000
+                                        Consumption tax: ¥94,700
+                                        ===========================
+                                        GRAND TOTAL:   ¥1,041,700 JPY
+
+Please remit within 45 days via wire transfer.

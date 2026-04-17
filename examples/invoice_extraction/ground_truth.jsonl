@@ -1,0 +1,10 @@
+{"id": "inv_001", "fields": {"invoice_no": "ACM-2024-0142", "date": "2024-03-15", "vendor": "ACME Widgets Inc", "total": 396.36, "currency": "USD"}}
+{"id": "inv_002", "fields": {"invoice_no": "MER/2024/0477", "date": "2024-04-02", "vendor": "Meridian Consulting LLC", "total": 8910.00, "currency": "AUD"}}
+{"id": "inv_003", "fields": {"invoice_no": "BFS-99812", "date": "2024-03-12", "vendor": "Bluefin Seafood Supply", "total": 2414.50, "currency": "AUD"}}
+{"id": "inv_004", "fields": {"invoice_no": "NWT-DE-2024-0891", "date": "2024-02-28", "vendor": "Northwind Traders GmbH", "total": 5842.90, "currency": "EUR"}}
+{"id": "inv_005", "fields": {"invoice_no": "HV2024/03/18", "date": "2024-03-30", "vendor": "Hills & Vale Landscaping", "total": 1120.94, "currency": "USD"}}
+{"id": "inv_006", "fields": {"invoice_no": "TMW-24-0563", "date": "2024-01-18", "vendor": "Tokyo Machinery Works", "total": 1041700, "currency": "JPY"}}
+{"id": "inv_007", "fields": {"invoice_no": "CF-INV-8847", "date": "2024-05-01", "vendor": "CloudForge Platform Inc", "total": 661.32, "currency": "USD"}}
+{"id": "inv_008", "fields": {"invoice_no": "BS-D-71238", "date": "2024-04-22", "vendor": "Bright Smile Dental Group", "total": 185.00, "currency": "USD"}}
+{"id": "inv_009", "fields": {"invoice_no": "SCD-FR-2024-118", "date": "2024-04-05", "vendor": "Studio Canal Design", "total": 8118.00, "currency": "EUR"}}
+{"id": "inv_010", "fields": {"invoice_no": "2024-Q1-0617", "date": "2024-01-08", "vendor": "Redwood Electrical Services", "total": 1029.80, "currency": "USD"}}

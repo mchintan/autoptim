@@ -1,0 +1,22 @@
+Bright Smile Dental Group
+Dr. Patel, DDS | 4401 Oakridge Rd, Unit 12
+
+Patient Account Invoice
+
+Patient: Mr. Harold Brennan        Account: 20241-HB
+Service date: 22-Apr-2024
+
+                           ITEMIZED CHARGES
+
+  ADA 0120 - Periodic oral evaluation                    $85.00
+  ADA 1110 - Adult prophylaxis (cleaning)               $145.00
+  ADA 0274 - Bitewing x-rays (four)                      $75.00
+  ADA 2391 - Composite filling, posterior               $220.00
+
+                                     Subtotal:          $525.00
+                                     Insurance portion: -$340.00
+                                     -----------------------------
+                                     Patient balance:   $185.00 USD
+
+Invoice reference: BS-D-71238
+Please pay within 60 days of service.

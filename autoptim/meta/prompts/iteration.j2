@@ -1,0 +1,59 @@
+## Run status
+
+- Iteration: {{ iter }} / {{ max_iters }}
+- Wall clock: {{ wall_used_h }}h used / {{ wall_cap_h }}h cap
+- Frontier spend: ${{ usd_spent }} used / ${{ usd_cap }} cap ({{ usd_remaining }} remaining)
+
+## Best so far
+
+{% if best %}
+- Iter **{{ best.iter }}**: score = **{{ best.score }}** (target {{ target }})
+- Winning hypothesis: {{ best.hypothesis }}
+{% else %}
+No successful iteration yet — you are still improving on the seed.
+{% endif %}
+
+## Recent history (last {{ history|length }} iterations)
+
+{% if history %}
+| iter | parent | strategy | score | Δ | hypothesis |
+|------|--------|----------|-------|---|------------|
+{% for h in history %}| {{ h.iter }} | {{ h.parent }} | {{ h.strategy_tag }} | {{ h.score }} | {{ h.delta }} | {{ h.hypothesis }} |
+{% endfor %}
+{% else %}
+No history yet. This is your first non-seed iteration.
+{% endif %}
+
+## Strategy directive
+
+**{{ strategy_directive }}**
+
+{% if forced_strategy %}
+You MUST use `strategy_tag = "{{ forced_strategy }}"` this iteration. The scheduler detected a stall on other axes.
+{% endif %}
+
+## Current parent `process.py` (score = {{ parent_score }})
+
+```python
+{{ parent_process_py }}
+```
+
+## Latest evaluation of the parent
+
+- Overall: **{{ eval.overall }}** / {{ target }}
+- Per-document scores:
+
+{% for d in eval.per_doc %}- `{{ d.id }}`: {{ d.score }}{% if d.error %} ({{ d.error }}){% endif %}
+{% endfor %}
+
+### Worst {{ eval.failures|length }} failures
+
+{% for f in eval.failures %}
+**{{ f.id }}** — {{ f.summary }}
+- expected: `{{ f.expected }}`
+- predicted: `{{ f.predicted }}`
+{% endfor %}
+
+---
+
+Now propose the next experiment via the `propose_iteration` tool.
