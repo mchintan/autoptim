@@ -30,5 +30,5 @@ meta:
 
 worker:
   ollama_host: http://localhost:11434
-  default_model: gemma4:latest
+  default_model: llama3.2:1b
   memory_mb: 4096
