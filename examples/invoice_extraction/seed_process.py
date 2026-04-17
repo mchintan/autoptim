@@ -77,7 +77,12 @@ def run(inputs: list[dict], ctx: dict) -> list[dict]:
             raw = _ollama_chat(host, model, prompt, timeout)
             parsed = _parse_json_loose(raw)
             predictions.append({"id": item["id"], "prediction": parsed})
-            log(f"{item['id']}: ok ({len(raw)} chars)")
+            # Log a preview of what Ollama actually returned — this is what the meta-agent
+            # sees in the worker log tail, and it's the fastest way to spot "Ollama is
+            # returning prose", "Ollama is returning empty", or "Ollama is returning
+            # something the parser can't salvage" without reading the raw run artifacts.
+            preview = raw.replace("\n", " ")[:150]
+            log(f"{item['id']}: ok ({len(raw)} chars) keys={sorted(parsed)} preview={preview!r}")
         except Exception as e:
             log(f"{item['id']}: error {type(e).__name__}: {e}")
             predictions.append({"id": item["id"], "prediction": None})

@@ -157,6 +157,46 @@ def test_orchestrator_monotonic_with_stub(example_task: Path, tmp_path: Path, mo
     assert len(lines) == 4
 
 
+def test_degenerate_seed_halts_before_meta(example_task: Path, tmp_path: Path, monkeypatch):
+    """If every seed prediction is null, refuse to call the meta-agent at all."""
+    task = load_task(example_task)
+
+    from autoptim.worker import ollama_client as oc
+    monkeypatch.setattr(oc.OllamaClient, "available", lambda self: True)
+    monkeypatch.setattr(oc.OllamaClient, "list_models", lambda self: ["stub:1"])
+
+    from autoptim.meta import agent as agent_mod
+
+    meta_call_count = {"n": 0}
+
+    class _StubProvider:
+        def call_tool(self, **kw):
+            meta_call_count["n"] += 1
+            raise AssertionError("meta-agent must not be called on degenerate seed")
+    monkeypatch.setattr(agent_mod, "make_provider", lambda *a, **kw: _StubProvider())
+
+    orch = Orchestrator(task, api_key="fake", runs_root=tmp_path / "runs")
+
+    # Sandbox returns prediction=None for every doc, simulating a broken worker
+    from autoptim import orchestrator as orch_mod
+
+    def fake_sandbox(**kw):
+        return SandboxResult(
+            predictions=[{"id": f"doc_{i}", "prediction": None} for i in range(3)],
+            stdout="inv_001: error HTTPStatusError: 500\ninv_002: error HTTPStatusError: 500\n",
+            stderr="",
+            elapsed_s=0.01,
+            error=None,
+            returncode=0,
+            timed_out=False,
+        )
+    monkeypatch.setattr(orch_mod, "run_process_py", fake_sandbox)
+
+    reason = orch.run()
+    assert reason.code == "degenerate_seed", reason
+    assert meta_call_count["n"] == 0, "meta-agent was called despite broken seed"
+
+
 def test_budget_cap_halts_run(example_task: Path, tmp_path: Path, monkeypatch):
     task = load_task(example_task)
 

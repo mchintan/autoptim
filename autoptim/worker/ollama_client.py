@@ -26,6 +26,35 @@ class OllamaClient:
         except httpx.HTTPError:
             return False
 
+    def smoke_test(self, model: str) -> tuple[bool, str]:
+        """One tiny chat call to verify the configured model actually answers.
+
+        Returns (ok, detail). `detail` is either the response preview or the error message.
+        Many failures (crashed llama runner, model not pulled, insufficient memory) surface
+        here as an HTTP 500 that /api/tags would not catch.
+        """
+        try:
+            r = httpx.post(
+                f"{self.host}/api/chat",
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": "Reply with only: ok"}],
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 8},
+                },
+                timeout=30.0,
+            )
+        except httpx.HTTPError as e:
+            return False, f"request failed: {type(e).__name__}: {e}"
+        if r.status_code != 200:
+            body = (r.text or "").strip()
+            return False, f"HTTP {r.status_code}: {body[:400]}"
+        try:
+            content = r.json()["message"]["content"]
+        except (KeyError, ValueError) as e:
+            return False, f"unexpected response shape: {e!s}"
+        return True, content.strip()[:200]
+
     def list_models(self) -> list[str]:
         r = httpx.get(f"{self.host}/api/tags", timeout=10.0)
         r.raise_for_status()

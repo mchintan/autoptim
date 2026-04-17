@@ -54,6 +54,16 @@ You MUST use `strategy_tag = "{{ forced_strategy }}"` this iteration. The schedu
 - predicted: `{{ f.predicted }}`
 {% endfor %}
 
+{% if worker_log_tail %}
+### Worker log tail (parent iteration stdout)
+
+This is what the worker actually printed while running the parent `process.py`. Read it — it usually tells you WHY fields came back null (HTTP errors from Ollama, parse failures, empty LLM responses, etc.). If every line shows an error or "0 chars" output, the fix is upstream of prompt tuning.
+
+```
+{{ worker_log_tail }}
+```
+{% endif %}
+
 ---
 
 Now propose the next experiment via the `propose_iteration` tool.

@@ -224,6 +224,13 @@ class Orchestrator:
             if reason:
                 store.write_final(self._final_json(state, reason))
                 return reason
+            # Circuit breaker: if the seed produced no usable output at all,
+            # refuse to proceed. The meta-agent can't design useful experiments
+            # against a completely broken baseline.
+            degenerate = self._diagnose_seed(store)
+            if degenerate is not None:
+                store.write_final(self._final_json(state, degenerate))
+                return degenerate
 
         # Main loop
         while True:
@@ -235,6 +242,11 @@ class Orchestrator:
             parent = state.best_iter if state.best_iter is not None else 0
             parent_process_py = store.read_process(parent)
             parent_eval = store.read_eval(parent)
+            # Previous iteration's log (not parent's — we want what happened most recently).
+            last_iter_n = state.iters[-1].iter if state.iters else parent
+            worker_log_tail = _read_log_tail(
+                store.iter_dir(last_iter_n) / "worker_stdout.log", 30
+            )
 
             console().rule(f"[bold cyan]iter {iter_n}[/bold cyan]  (parent = iter {parent})")
 
@@ -254,6 +266,7 @@ class Orchestrator:
                         parent_score=state.best_score,
                         eval_json=parent_eval,
                         history=state.iters,
+                        worker_log_tail=worker_log_tail,
                         best=(
                             {
                                 "iter": state.best_iter,
@@ -485,6 +498,58 @@ class Orchestrator:
         }
 
 
+    # ---- diagnostics ----
+
+    def _diagnose_seed(self, store: RunStore) -> "HaltReason | None":
+        """If iter 0 shows every prediction empty/null, halt with actionable diagnostics.
+
+        This protects the frontier budget: we've seen runs burn $1+ of meta-agent
+        calls while every worker call was returning HTTP 500 because Ollama's
+        llama runner had crashed. No point designing experiments when the
+        infrastructure beneath them is down.
+        """
+        try:
+            eval_json = store.read_eval(0)
+        except FileNotFoundError:
+            return None
+        per_doc = eval_json.get("per_doc") or []
+        if not per_doc:
+            return None
+        all_null_or_empty = all(
+            d.get("score", 0.0) == 0.0
+            and (d.get("error") or all(f.get("predicted") in (None, "", {}) for f in d.get("fields", [])))
+            for d in per_doc
+        )
+        if not all_null_or_empty:
+            return None
+
+        # Gather the evidence
+        tail = _read_log_tail(store.run_dir / "iter_000" / "worker_stdout.log", 15)
+        err_tail = _read_log_tail(store.run_dir / "iter_000" / "worker_stderr.log", 10)
+
+        body = (
+            "[red bold]Refusing to proceed: the seed iteration produced no usable output.[/red bold]\n\n"
+            "Every document came back with either an error or all-null fields. There is no signal "
+            "for the meta-agent to improve on — it would just burn frontier tokens against a broken baseline.\n\n"
+            "[bold]Worker stdout (last 15 lines):[/bold]\n"
+            f"[dim]{tail or '(empty)'}[/dim]\n"
+        )
+        if err_tail:
+            body += f"\n[bold]Worker stderr (last 10 lines):[/bold]\n[dim]{err_tail}[/dim]\n"
+        body += (
+            "\n[bold]Likely causes + fixes:[/bold]\n"
+            "  • Ollama's llama runner crashed → restart it; test with "
+            f"[bold]ollama run {self.task.worker.default_model} \"hi\"[/bold]\n"
+            "  • Model not fully pulled / corrupted → "
+            f"[bold]ollama rm {self.task.worker.default_model} && ollama pull {self.task.worker.default_model}[/bold]\n"
+            "  • Out of memory — check [bold]ollama ps[/bold] and free RAM/VRAM\n"
+            "  • seed_process.py has a bug unrelated to Ollama → "
+            f"[bold]autoptim replay {store.run_id} 0[/bold] to reproduce with fresh logs\n\n"
+            "Once fixed, re-run. [dim](You can also inspect the full logs under runs/<run_id>/iter_000/.)[/dim]"
+        )
+        console().print(Panel(body, title="seed diagnosis", border_style="red"))
+        return HaltReason("degenerate_seed", "seed iteration produced no usable predictions; see diagnostic panel")
+
     # ---- rendering helpers ----
 
     def _render_proposal(
@@ -621,6 +686,13 @@ def _trim_diff(diff: str, max_lines: int = 80) -> str:
 
 def _tail(s: str, n: int) -> str:
     return "\n".join(s.splitlines()[-n:])
+
+
+def _read_log_tail(path: "Path", n: int) -> str:
+    try:
+        return _tail(path.read_text(), n)
+    except (FileNotFoundError, OSError):
+        return ""
 
 
 def _now_iso() -> str:

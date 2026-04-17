@@ -169,6 +169,7 @@ class MetaAgent:
         history: list[IterationRecord],
         best: dict[str, Any] | None,
         directive: Directive,
+        worker_log_tail: str = "",
     ) -> str:
         hist_view = [
             {
@@ -206,6 +207,7 @@ class MetaAgent:
             parent_process_py=parent_process_py,
             parent_score=f"{parent_score:.3f}" if parent_score is not None else "—",
             eval=eval_trimmed,
+            worker_log_tail=worker_log_tail.strip(),
         )
 
     def propose(
@@ -221,6 +223,7 @@ class MetaAgent:
         eval_json: dict[str, Any],
         history: list[IterationRecord],
         best: dict[str, Any] | None,
+        worker_log_tail: str = "",
     ) -> MetaCallResult:
         directive = decide_strategy(history)
         system = self._render_system()
@@ -237,6 +240,7 @@ class MetaAgent:
             history=history,
             best=best,
             directive=directive,
+            worker_log_tail=worker_log_tail,
         )
 
         # Preflight cost check using a rough estimator

@@ -120,21 +120,46 @@ def _preflight_gemini(api_key: str, wanted_model: str) -> None:
         )
 
 
-def _preflight_ollama(host: str) -> None:
+def _preflight_ollama(host: str, worker_model: str) -> None:
     client = OllamaClient(host)
     if not client.available():
         console().print(
             f"[red]Ollama not reachable at {host}.[/red] Start it with `ollama serve` "
-            f"and pull a model (e.g. `ollama pull qwen2.5:7b`) before running."
+            f"and pull a model (e.g. `ollama pull {worker_model}`) before running."
         )
         raise typer.Exit(2)
     models = client.list_models()
     if not models:
         console().print(
-            f"[yellow]Ollama is running but has no models installed. Pull one first, e.g. `ollama pull qwen2.5:7b`.[/yellow]"
+            f"[yellow]Ollama is running but has no models installed. Pull one first, e.g. `ollama pull {worker_model}`.[/yellow]"
         )
         raise typer.Exit(2)
-    console().print(f"[green]Ollama OK[/green] ({len(models)} models: {', '.join(models[:4])}{'…' if len(models) > 4 else ''})")
+    if worker_model not in models:
+        console().print(
+            f"[red]Worker model [cyan]{worker_model}[/cyan] is not in `ollama list`.[/red] "
+            f"Installed: {', '.join(models[:6])}{'…' if len(models) > 6 else ''}\n"
+            f"Run: [bold]ollama pull {worker_model}[/bold]"
+        )
+        raise typer.Exit(2)
+
+    # Actual chat to verify the runner is healthy, not just the server. Catches
+    # crashed llama-runner / corrupt model / OOM cases that /api/tags misses.
+    ok, detail = client.smoke_test(worker_model)
+    if not ok:
+        console().print(
+            f"[red]Ollama rejected a test chat with [cyan]{worker_model}[/cyan]:[/red] {detail}\n\n"
+            f"Common fixes:\n"
+            f"  • [bold]ollama serve[/bold] is running but the llama runner may have crashed — "
+            f"restart it and try [bold]ollama run {worker_model} \"hi\"[/bold] to confirm it replies.\n"
+            f"  • Re-pull the model: [bold]ollama rm {worker_model} && ollama pull {worker_model}[/bold]\n"
+            f"  • Check [bold]ollama ps[/bold] and system memory — large models may OOM silently.\n\n"
+            f"The harness refuses to proceed because every worker call would fail and the frontier "
+            f"meta-agent would burn tokens against a broken baseline."
+        )
+        raise typer.Exit(2)
+    console().print(
+        f"[green]Ollama OK[/green] · {len(models)} models installed · [cyan]{worker_model}[/cyan] replied in smoke test"
+    )
 
 
 @app.command()
@@ -146,7 +171,7 @@ def run(
     """Start or resume an optimization run."""
     configure(log_level)
     task = load_task(task_file)
-    _preflight_ollama(task.worker.ollama_host)
+    _preflight_ollama(task.worker.ollama_host, task.worker.default_model)
     key = _resolve_api_key(task.meta.provider)
     if task.meta.provider == "gemini":
         _preflight_gemini(key, task.meta.model)
@@ -348,7 +373,7 @@ def replay(
 
     run_yaml["task_root"] = str(store.run_dir)
     task = TaskConfig.model_validate(run_yaml)
-    _preflight_ollama(task.worker.ollama_host)
+    _preflight_ollama(task.worker.ollama_host, task.worker.default_model)
 
     from .worker.sandbox import run_process_py
     import mimetypes
