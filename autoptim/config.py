@@ -58,7 +58,7 @@ class MetaConfig(BaseModel):
 
 class WorkerConfig(BaseModel):
     ollama_host: str = "http://localhost:11434"
-    default_model: str = "gemma3:4b"
+    default_model: str = "gemma4:latest"
     memory_mb: int = 4096
 
     model_config = {"extra": "forbid"}

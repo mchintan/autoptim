@@ -16,12 +16,12 @@ The work inside `process.py` is done by a **local Ollama model** — cheap enoug
 
 ```bash
 pip install -e .
-ollama pull gemma3:4b            # or gemma3:12b for more capability, gemma3:1b for less RAM
+ollama pull gemma4:latest        # whichever Gemma tag you already have works — just match it in task.yaml
 export GEMINI_API_KEY=...        # or ANTHROPIC_API_KEY / OPENAI_API_KEY / OPENROUTER_API_KEY
 autoptim run examples/invoice_extraction/task.yaml
 ```
 
-The shipped example uses `gemma3:4b` as the local worker and `gemini-3.1-flash-lite-preview` as the meta-agent. Edit the `worker.default_model` and `meta.model` entries in `task.yaml` to switch either one.
+The shipped example uses `gemma4:latest` as the local worker and `gemini-3.1-flash-lite-preview` as the meta-agent. Edit the `worker.default_model` and `meta.model` entries in `task.yaml` to switch either one.
 
 Inspect a run:
 
