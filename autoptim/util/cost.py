@@ -24,6 +24,15 @@ PRICES: dict[tuple[str, str], tuple[float, float]] = {
     # openrouter is pass-through; we charge on the listed model prefix if known
     ("openrouter", "anthropic/claude-opus"): (15.0, 75.0),
     ("openrouter", "openai/gpt-4o"): (2.50, 10.0),
+    # Gemini — conservative estimates (real prices vary by tier + context length)
+    ("gemini", "gemini-3-pro"): (5.0, 20.0),
+    ("gemini", "gemini-3"): (5.0, 20.0),
+    ("gemini", "gemini-2.5-pro"): (1.25, 10.0),
+    ("gemini", "gemini-2.5-flash"): (0.30, 2.50),
+    ("gemini", "gemini-2.0-pro"): (1.25, 5.0),
+    ("gemini", "gemini-2.0-flash"): (0.15, 0.60),
+    ("gemini", "gemini-1.5-pro"): (1.25, 5.0),
+    ("gemini", "gemini-1.5-flash"): (0.15, 0.60),
 }
 
 # Safe default if the model string doesn't match any prefix.

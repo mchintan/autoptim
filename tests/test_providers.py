@@ -99,3 +99,33 @@ def test_openai_omits_temperature_when_none():
     )
     kwargs = provider._client.chat.completions.create.call_args.kwargs
     assert "temperature" not in kwargs
+
+
+def test_make_provider_gemini_uses_google_base_url():
+    from autoptim.meta.providers import GeminiProvider, make_provider
+
+    provider = make_provider("gemini", "fake-key")
+    assert isinstance(provider, GeminiProvider)
+    # The OpenAI SDK stores base_url on the client. It should point at Google's endpoint.
+    assert "generativelanguage.googleapis.com" in str(provider._client.base_url)
+
+
+def test_gemini_call_passes_tool_choice_and_parses_response():
+    from autoptim.meta.providers import GeminiProvider
+
+    provider = GeminiProvider.__new__(GeminiProvider)
+    provider._client = _make_openai_fake()
+    result = provider.call_tool(
+        system="sys",
+        user="usr",
+        tool_name="propose_iteration",
+        tool_description="",
+        tool_schema={"type": "object"},
+        model="gemini-3-pro",
+        temperature=None,
+        max_tokens=1000,
+    )
+    assert result.tool_args == {"hypothesis": "x"}
+    kwargs = provider._client.chat.completions.create.call_args.kwargs
+    assert kwargs["tool_choice"] == {"type": "function", "function": {"name": "propose_iteration"}}
+    assert kwargs["model"] == "gemini-3-pro"

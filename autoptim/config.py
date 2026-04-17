@@ -46,8 +46,8 @@ class Budgets(BaseModel):
 
 
 class MetaConfig(BaseModel):
-    provider: Literal["anthropic", "openai", "openrouter"] = "anthropic"
-    model: str = "claude-opus-4-7"
+    provider: Literal["anthropic", "openai", "openrouter", "gemini"] = "gemini"
+    model: str = "gemini-3-pro"
     max_history: int = 5
     # Some reasoning models (e.g. claude-opus-4-7) reject `temperature`. Leave unset
     # by default and only pass through when the user explicitly configures it.

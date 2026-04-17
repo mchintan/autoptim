@@ -10,16 +10,18 @@ You give it three things: a set of inputs, a ground truth, and a metric that sco
 4. **Keep** the new version if it beat the previous best; otherwise discard and go back to the previous best.
 5. **Repeat** until the target score is reached or a budget cap (iterations, wall-clock, or dollars) is hit.
 
-The work inside `process.py` is done by a **local Ollama model** — cheap enough to call thousands of times per iteration. The **frontier meta-agent** (Claude / OpenAI / OpenRouter) is called once per iteration to propose the next experiment. That split is what makes the loop affordable to run for many iterations.
+The work inside `process.py` is done by a **local Ollama model** — cheap enough to call thousands of times per iteration. The **frontier meta-agent** (Gemini / Claude / OpenAI / OpenRouter) is called once per iteration to propose the next experiment. That split is what makes the loop affordable to run for many iterations.
 
 ## Quick start
 
 ```bash
 pip install -e .
 ollama pull qwen2.5:7b
-export ANTHROPIC_API_KEY=...
+export GEMINI_API_KEY=...        # or ANTHROPIC_API_KEY / OPENAI_API_KEY / OPENROUTER_API_KEY
 autoptim run examples/invoice_extraction/task.yaml
 ```
+
+The shipped example uses `gemini-3-pro` as the meta-agent. To switch providers, edit `meta.provider` + `meta.model` in the task's `task.yaml`.
 
 Inspect a run:
 

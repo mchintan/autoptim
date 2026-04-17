@@ -21,11 +21,12 @@ budgets:
   per_iter_timeout_s: 300
 
 meta:
-  provider: anthropic
-  model: claude-opus-4-7
+  provider: gemini
+  model: gemini-3-pro
   max_history: 5
-  # `temperature` intentionally unset — claude-opus-4-7 rejects it.
-  # Set explicitly (e.g. 0.7) only when using a non-reasoning model like Sonnet.
+  # `temperature` intentionally unset. Some reasoning-class models reject it;
+  # leave it off by default and only set explicitly when you know the target
+  # model accepts and benefits from it.
 
 worker:
   ollama_host: http://localhost:11434

@@ -153,6 +153,21 @@ class OpenRouterProvider(OpenAIProvider):
         super().__init__(api_key=api_key, base_url="https://openrouter.ai/api/v1")
 
 
+class GeminiProvider(OpenAIProvider):
+    """Google Gemini via the OpenAI-compatible endpoint.
+
+    Google exposes `/v1beta/openai/` as an OpenAI-shaped surface, which means
+    the same tool-calling, JSON-schema, and message format used for OpenAI
+    works here. API key env var is `GEMINI_API_KEY` (or `GOOGLE_API_KEY`).
+    """
+
+    def __init__(self, api_key: str):
+        super().__init__(
+            api_key=api_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
+
+
 def make_provider(provider: str, api_key: str) -> Provider:
     if provider == "anthropic":
         return AnthropicProvider(api_key)
@@ -160,4 +175,6 @@ def make_provider(provider: str, api_key: str) -> Provider:
         return OpenAIProvider(api_key)
     if provider == "openrouter":
         return OpenRouterProvider(api_key)
+    if provider == "gemini":
+        return GeminiProvider(api_key)
     raise ValueError(f"unknown provider: {provider!r}")

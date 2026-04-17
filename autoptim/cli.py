@@ -34,6 +34,12 @@ _PROVIDER_ENV = {
     "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
+    # Gemini accepts either GEMINI_API_KEY (preferred) or GOOGLE_API_KEY (Google's default name).
+    "gemini": "GEMINI_API_KEY",
+}
+
+_PROVIDER_ENV_FALLBACK = {
+    "gemini": "GOOGLE_API_KEY",
 }
 
 
@@ -44,6 +50,11 @@ def _resolve_api_key(provider: str) -> str:
     val = os.environ.get(env_var, "").strip()
     if val:
         return val
+    fallback = _PROVIDER_ENV_FALLBACK.get(provider)
+    if fallback:
+        fv = os.environ.get(fallback, "").strip()
+        if fv:
+            return fv
     # Check persisted creds
     if CRED_PATH.exists():
         try:
