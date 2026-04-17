@@ -22,7 +22,7 @@ budgets:
 
 meta:
   provider: gemini
-  model: gemini-3-pro
+  model: gemini-3.1-flash-lite-preview 
   max_history: 5
   # `temperature` intentionally unset. Some reasoning-class models reject it;
   # leave it off by default and only set explicitly when you know the target
