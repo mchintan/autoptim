@@ -22,4 +22,4 @@ meta:
 
 worker:
   ollama_host: http://localhost:11434
-  default_model: qwen2.5:7b
+  default_model: gemma3:4b
