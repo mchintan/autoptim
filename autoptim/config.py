@@ -57,9 +57,19 @@ class MetaConfig(BaseModel):
 
 
 class WorkerConfig(BaseModel):
+    # Backend:
+    #   "ollama"         — native Ollama /api/chat at ollama_host (default, local & free)
+    #   "openai_compat"  — any OpenAI-shaped provider (Groq, Together, Fireworks, OpenRouter,
+    #                      Ollama's /v1 compat endpoint). Uses base_url + api_key_env.
+    backend: Literal["ollama", "openai_compat"] = "ollama"
+
     ollama_host: str = "http://localhost:11434"
     default_model: str = "gemma4:latest"
     memory_mb: int = 4096
+
+    # openai_compat-only fields
+    base_url: str | None = None
+    api_key_env: str | None = None
 
     model_config = {"extra": "forbid"}
 

@@ -14,14 +14,27 @@ The work inside `process.py` is done by a **local Ollama model** — cheap enoug
 
 ## Quick start
 
+Two flavors of the same example — pick whichever is easier to stand up on your box:
+
+**Local worker (free, needs Ollama running cleanly):**
+
 ```bash
 pip install -e .
-ollama pull gemma4:latest        # whichever Gemma tag you already have works — just match it in task.yaml
-export GEMINI_API_KEY=...        # or ANTHROPIC_API_KEY / OPENAI_API_KEY / OPENROUTER_API_KEY
+ollama pull llama3.2:1b          # or any Gemma/Qwen tag you already have
+export GEMINI_API_KEY=...
 autoptim run examples/invoice_extraction/task.yaml
 ```
 
-The shipped example uses `gemma4:latest` as the local worker and `gemini-3.1-flash-lite-preview` as the meta-agent. Edit the `worker.default_model` and `meta.model` entries in `task.yaml` to switch either one.
+**Cloud worker (free tier on Groq, no local model needed):**
+
+```bash
+pip install -e .
+export GEMINI_API_KEY=...
+export GROQ_API_KEY=gsk_...      # from https://console.groq.com/keys
+autoptim run examples/invoice_extraction/task_groq.yaml
+```
+
+The cloud flavor points `worker.backend: openai_compat` at `https://api.groq.com/openai/v1`. Any OpenAI-compatible provider works — swap `base_url` + `api_key_env` in the task file to point at Together, Fireworks, OpenRouter, or Ollama's own `/v1` endpoint.
 
 Inspect a run:
 

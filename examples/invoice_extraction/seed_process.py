@@ -1,8 +1,14 @@
 """Seed process.py for invoice extraction.
 
-Deliberately mediocre. One naive prompt, one model call, text-only input,
-no retries, no verification. The point is to establish a baseline that the
-meta-agent can then improve on.
+Deliberately mediocre. One naive prompt, one worker call per doc, no retries,
+no verification. Establishes a baseline the meta-agent can improve on.
+
+Supports two worker backends via `ctx`:
+
+- `ctx["backend"] == "ollama"`        → POST to Ollama's native /api/chat
+- `ctx["backend"] == "openai_compat"` → any OpenAI-shaped endpoint (Groq, Together,
+                                        Fireworks, OpenRouter, Ollama's /v1 compat).
+                                        Uses `ctx["base_url"]` + `ctx["api_key"]`.
 """
 from __future__ import annotations
 
@@ -17,14 +23,38 @@ def _read_text(path: str) -> str:
         return f.read()
 
 
-def _ollama_chat(host: str, model: str, prompt: str, timeout_s: int) -> str:
+def _chat(ctx: dict, messages: list[dict], *, temperature: float = 0.2, timeout_s: int = 120) -> str:
+    backend = ctx.get("backend", "ollama")
+    model = ctx["model_hint"]
+
+    if backend == "openai_compat":
+        base_url = ctx["base_url"].rstrip("/")
+        api_key = ctx["api_key"]
+        r = httpx.post(
+            f"{base_url}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+            },
+            timeout=timeout_s,
+        )
+        r.raise_for_status()
+        return r.json()["choices"][0]["message"]["content"]
+
+    # Default: Ollama native API
+    host = ctx["ollama_host"].rstrip("/")
     r = httpx.post(
-        f"{host.rstrip('/')}/api/chat",
+        f"{host}/api/chat",
         json={
             "model": model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "stream": False,
-            "options": {"temperature": 0.2},
+            "options": {"temperature": temperature},
         },
         timeout=min(timeout_s, 120),
     )
@@ -33,8 +63,13 @@ def _ollama_chat(host: str, model: str, prompt: str, timeout_s: int) -> str:
 
 
 def _parse_json_loose(text: str) -> dict[str, Any]:
-    # Try straight parse, then locate first balanced {...}
     text = text.strip()
+    # Strip common markdown fencing
+    if text.startswith("```"):
+        text = text.strip("`")
+        # After stripping backticks we may have a leading "json\n"
+        if text.lower().startswith("json"):
+            text = text[4:].lstrip()
     try:
         obj = json.loads(text)
         return obj if isinstance(obj, dict) else {}
@@ -61,8 +96,6 @@ def _parse_json_loose(text: str) -> dict[str, Any]:
 
 def run(inputs: list[dict], ctx: dict) -> list[dict]:
     log = ctx["log"]
-    model = ctx["model_hint"]
-    host = ctx["ollama_host"]
     timeout = int(ctx.get("per_iter_timeout_s", 300))
 
     predictions: list[dict] = []
@@ -74,13 +107,17 @@ def run(inputs: list[dict], ctx: dict) -> list[dict]:
                 f"INVOICE:\n{text}\n\n"
                 "Fields to extract: invoice_no, date, vendor, total, currency."
             )
-            raw = _ollama_chat(host, model, prompt, timeout)
+            raw = _chat(
+                ctx,
+                [{"role": "user", "content": prompt}],
+                temperature=0.2,
+                timeout_s=timeout,
+            )
             parsed = _parse_json_loose(raw)
             predictions.append({"id": item["id"], "prediction": parsed})
-            # Log a preview of what Ollama actually returned — this is what the meta-agent
-            # sees in the worker log tail, and it's the fastest way to spot "Ollama is
-            # returning prose", "Ollama is returning empty", or "Ollama is returning
-            # something the parser can't salvage" without reading the raw run artifacts.
+            # Preview of raw output so the meta-agent can see what the worker actually returned
+            # (this ends up in worker_stdout.log, which the orchestrator tails into the next
+            # iteration's prompt).
             preview = raw.replace("\n", " ")[:150]
             log(f"{item['id']}: ok ({len(raw)} chars) keys={sorted(parsed)} preview={preview!r}")
         except Exception as e:

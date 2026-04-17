@@ -85,6 +85,86 @@ def _resolve_api_key(provider: str) -> str:
     return key
 
 
+def _resolve_worker_api_key(api_key_env: str) -> str:
+    """Read an OpenAI-compat worker's API key from env / credentials / prompt.
+
+    Parallel to `_resolve_api_key` but for the worker tier. Keys are persisted to
+    `~/.autoptim/credentials` under the env-var name (e.g. "GROQ_API_KEY") so
+    subsequent runs pick them up automatically.
+    """
+    val = os.environ.get(api_key_env, "").strip()
+    if val:
+        return val
+    if CRED_PATH.exists():
+        try:
+            creds = json.loads(CRED_PATH.read_text())
+            if creds.get(api_key_env):
+                return creds[api_key_env]
+        except json.JSONDecodeError:
+            pass
+    console().print(
+        f"[yellow]{api_key_env} not set. Enter API key for the worker (will be stored 0600 at {CRED_PATH}):[/yellow]"
+    )
+    key = Prompt.ask("API key", password=True).strip()
+    if not key:
+        raise typer.Exit("no key provided")
+    persist = Prompt.ask("Persist to ~/.autoptim/credentials?", choices=["y", "n"], default="y")
+    if persist == "y":
+        CRED_PATH.parent.mkdir(parents=True, exist_ok=True)
+        existing: dict[str, Any] = {}
+        if CRED_PATH.exists():
+            try:
+                existing = json.loads(CRED_PATH.read_text())
+            except json.JSONDecodeError:
+                existing = {}
+        existing[api_key_env] = key
+        CRED_PATH.write_text(json.dumps(existing, indent=2))
+        os.chmod(CRED_PATH, stat.S_IRUSR | stat.S_IWUSR)
+    return key
+
+
+def _preflight_cloud_worker(base_url: str, model: str, api_key: str) -> None:
+    """Smoke-test a cloud OpenAI-compat worker endpoint before starting the loop."""
+    import openai
+
+    try:
+        client = openai.OpenAI(api_key=api_key, base_url=base_url)
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": "Reply with only: ok"}],
+            max_tokens=8,
+            temperature=0.0,
+        )
+        reply = (resp.choices[0].message.content or "").strip()[:80]
+        console().print(
+            f"[green]Cloud worker OK[/green] · [cyan]{model}[/cyan] @ {base_url} replied: {reply!r}"
+        )
+    except Exception as e:
+        console().print(
+            f"[red]Cloud worker rejected smoke test for [cyan]{model}[/cyan] @ {base_url}:[/red] "
+            f"{type(e).__name__}: {e!s}\n\n"
+            f"Check: (a) model id is valid on that provider, (b) API key still active, "
+            f"(c) base_url is correct (must end with /v1 for OpenAI-compat endpoints)."
+        )
+        raise typer.Exit(2)
+
+
+def _preflight_worker(task: Any) -> str | None:
+    """Preflight the worker tier. Returns the resolved API key if cloud, else None."""
+    if task.worker.backend == "openai_compat":
+        if not task.worker.base_url or not task.worker.api_key_env:
+            console().print(
+                "[red]worker.backend=openai_compat requires both base_url and api_key_env in task.yaml[/red]"
+            )
+            raise typer.Exit(2)
+        key = _resolve_worker_api_key(task.worker.api_key_env)
+        _preflight_cloud_worker(task.worker.base_url, task.worker.default_model, key)
+        return key
+    # Native Ollama
+    _preflight_ollama(task.worker.ollama_host, task.worker.default_model)
+    return None
+
+
 def _preflight_gemini(api_key: str, wanted_model: str) -> None:
     """List installed Gemini models and warn if `wanted_model` is not exposed by the endpoint."""
     try:
@@ -171,11 +251,16 @@ def run(
     """Start or resume an optimization run."""
     configure(log_level)
     task = load_task(task_file)
-    _preflight_ollama(task.worker.ollama_host, task.worker.default_model)
+    worker_api_key = _preflight_worker(task)
     key = _resolve_api_key(task.meta.provider)
     if task.meta.provider == "gemini":
         _preflight_gemini(key, task.meta.model)
-    orch = Orchestrator(task, api_key=key, runs_root=_runs_root())
+    orch = Orchestrator(
+        task,
+        api_key=key,
+        runs_root=_runs_root(),
+        worker_api_key=worker_api_key,
+    )
     reason = orch.run(resume=resume)
     console().print(
         f"\n[bold]Halted[/bold]: {reason.code} — {reason.detail}\n"
@@ -373,7 +458,7 @@ def replay(
 
     run_yaml["task_root"] = str(store.run_dir)
     task = TaskConfig.model_validate(run_yaml)
-    _preflight_ollama(task.worker.ollama_host, task.worker.default_model)
+    worker_api_key = _preflight_worker(task)
 
     from .worker.sandbox import run_process_py
     import mimetypes
@@ -386,10 +471,18 @@ def replay(
             inputs.append({"id": p.stem, "path": str(p), "mime": mime or "application/octet-stream"})
 
     out_dir = store.run_dir / f"replay_{iter_n:03d}_{int(time.time())}"
+    ctx: dict[str, Any] = {
+        "ollama_host": task.worker.ollama_host,
+        "model_hint": task.worker.default_model,
+        "backend": task.worker.backend,
+    }
+    if task.worker.backend == "openai_compat":
+        ctx["base_url"] = task.worker.base_url
+        ctx["api_key"] = worker_api_key or ""
     result = run_process_py(
         process_py_path=store.iter_dir(iter_n) / "process.py",
         inputs=inputs,
-        ctx={"ollama_host": task.worker.ollama_host, "model_hint": task.worker.default_model},
+        ctx=ctx,
         out_dir=out_dir,
         timeout_s=task.budgets.per_iter_timeout_s,
         memory_mb=task.worker.memory_mb,

@@ -36,9 +36,16 @@ class HaltReason:
 
 
 class Orchestrator:
-    def __init__(self, task: TaskConfig, api_key: str, runs_root: str | Path = "runs"):
+    def __init__(
+        self,
+        task: TaskConfig,
+        api_key: str,
+        runs_root: str | Path = "runs",
+        worker_api_key: str | None = None,
+    ):
         self.task = task
         self.api_key = api_key
+        self.worker_api_key = worker_api_key
         self.runs_root = Path(runs_root).expanduser().resolve()
         self.runs_root.mkdir(parents=True, exist_ok=True)
 
@@ -343,13 +350,18 @@ class Orchestrator:
             f"(timeout {self.task.budgets.per_iter_timeout_s}s)...[/cyan]",
             spinner="dots",
         ):
+            worker_ctx: dict[str, Any] = {
+                "ollama_host": self.task.worker.ollama_host,
+                "model_hint": self.task.worker.default_model,
+                "backend": self.task.worker.backend,
+            }
+            if self.task.worker.backend == "openai_compat":
+                worker_ctx["base_url"] = self.task.worker.base_url
+                worker_ctx["api_key"] = self.worker_api_key or ""
             sandbox_result = run_process_py(
                 process_py_path=iter_dir / "process.py",
                 inputs=self.inputs,
-                ctx={
-                    "ollama_host": self.task.worker.ollama_host,
-                    "model_hint": self.task.worker.default_model,
-                },
+                ctx=worker_ctx,
                 out_dir=iter_dir,
                 timeout_s=self.task.budgets.per_iter_timeout_s,
                 memory_mb=self.task.worker.memory_mb,
