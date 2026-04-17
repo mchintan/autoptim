@@ -101,21 +101,60 @@ def test_openai_omits_temperature_when_none():
     assert "temperature" not in kwargs
 
 
-def test_make_provider_gemini_uses_google_base_url():
-    from autoptim.meta.providers import GeminiProvider, make_provider
+def _make_gemini_fake(tool_args):
+    """Fake google-genai client returning a single function_call part."""
+    function_call = types.SimpleNamespace(name="propose_iteration", args=tool_args)
+    part = types.SimpleNamespace(function_call=function_call, text=None)
+    candidate = types.SimpleNamespace(
+        content=types.SimpleNamespace(parts=[part])
+    )
+    resp = types.SimpleNamespace(
+        candidates=[candidate],
+        usage_metadata=types.SimpleNamespace(
+            prompt_token_count=42, candidates_token_count=17
+        ),
+    )
+    client = MagicMock()
+    client.models.generate_content.return_value = resp
+    return client
 
-    provider = make_provider("gemini", "fake-key")
-    assert isinstance(provider, GeminiProvider)
-    # The OpenAI SDK stores base_url on the client. It should point at Google's endpoint.
-    assert "generativelanguage.googleapis.com" in str(provider._client.base_url)
 
-
-def test_gemini_call_passes_tool_choice_and_parses_response():
+def test_gemini_call_forces_function_and_parses_response():
     from autoptim.meta.providers import GeminiProvider
 
     provider = GeminiProvider.__new__(GeminiProvider)
-    provider._client = _make_openai_fake()
+    provider._client = _make_gemini_fake({"hypothesis": "x"})
+
     result = provider.call_tool(
+        system="sys",
+        user="usr",
+        tool_name="propose_iteration",
+        tool_description="",
+        tool_schema={"type": "object", "properties": {}, "additionalProperties": False},
+        model="gemini-3-pro",
+        temperature=None,
+        max_tokens=1000,
+    )
+    assert result.tool_args == {"hypothesis": "x"}
+    assert result.tokens_in == 42
+    assert result.tokens_out == 17
+
+    kwargs = provider._client.models.generate_content.call_args.kwargs
+    assert kwargs["model"] == "gemini-3-pro"
+    # tool_config should force a function call on the named tool
+    cfg = kwargs["config"]
+    tc = cfg.tool_config.function_calling_config
+    assert tc.mode == "ANY"
+    assert tc.allowed_function_names == ["propose_iteration"]
+
+
+def test_gemini_omits_temperature_when_none():
+    from autoptim.meta.providers import GeminiProvider
+
+    provider = GeminiProvider.__new__(GeminiProvider)
+    provider._client = _make_gemini_fake({"hypothesis": "x"})
+
+    provider.call_tool(
         system="sys",
         user="usr",
         tool_name="propose_iteration",
@@ -125,7 +164,43 @@ def test_gemini_call_passes_tool_choice_and_parses_response():
         temperature=None,
         max_tokens=1000,
     )
-    assert result.tool_args == {"hypothesis": "x"}
-    kwargs = provider._client.chat.completions.create.call_args.kwargs
-    assert kwargs["tool_choice"] == {"type": "function", "function": {"name": "propose_iteration"}}
-    assert kwargs["model"] == "gemini-3-pro"
+    cfg = provider._client.models.generate_content.call_args.kwargs["config"]
+    # temperature was never set — Pydantic's .model_fields_set excludes unset fields
+    assert "temperature" not in cfg.model_fields_set
+
+
+def test_gemini_strips_unsupported_schema_keys():
+    from autoptim.meta.providers import _strip_for_gemini
+
+    stripped = _strip_for_gemini({
+        "type": "object",
+        "additionalProperties": False,
+        "$schema": "http://example",
+        "properties": {
+            "x": {"type": "string", "additionalProperties": False},
+        },
+    })
+    assert "additionalProperties" not in stripped
+    assert "$schema" not in stripped
+    assert "additionalProperties" not in stripped["properties"]["x"]
+
+
+def test_make_provider_gemini_instantiates_native_client():
+    from autoptim.meta import providers as pmod
+    from autoptim.meta.providers import GeminiProvider
+
+    # Don't actually hit google's auth — stub genai.Client
+    with MagicMock() as fake_genai:
+        fake_genai.Client.return_value = MagicMock()
+        import sys
+
+        real_genai = sys.modules.get("google.genai")
+        sys.modules["google"] = MagicMock(genai=fake_genai)
+        sys.modules["google.genai"] = fake_genai
+        try:
+            provider = pmod.make_provider("gemini", "fake-key")
+            assert isinstance(provider, GeminiProvider)
+            fake_genai.Client.assert_called_once_with(api_key="fake-key")
+        finally:
+            if real_genai is not None:
+                sys.modules["google.genai"] = real_genai

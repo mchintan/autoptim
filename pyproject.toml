@@ -20,6 +20,7 @@ dependencies = [
     "rapidfuzz>=3.6",
     "anthropic>=0.40",
     "openai>=1.40",
+    "google-genai>=0.3",
 ]
 
 [project.optional-dependencies]

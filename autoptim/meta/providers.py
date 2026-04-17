@@ -153,19 +153,126 @@ class OpenRouterProvider(OpenAIProvider):
         super().__init__(api_key=api_key, base_url="https://openrouter.ai/api/v1")
 
 
-class GeminiProvider(OpenAIProvider):
-    """Google Gemini via the OpenAI-compatible endpoint.
+class GeminiProvider:
+    """Google Gemini via the native google-genai SDK.
 
-    Google exposes `/v1beta/openai/` as an OpenAI-shaped surface, which means
-    the same tool-calling, JSON-schema, and message format used for OpenAI
-    works here. API key env var is `GEMINI_API_KEY` (or `GOOGLE_API_KEY`).
+    The OpenAI-compatible endpoint at generativelanguage.googleapis.com is
+    available, but it rejects requests with "Multiple authentication credentials
+    received" when the Authorization header overlaps with ambient Google auth
+    in the environment. The native SDK sidesteps the problem entirely.
+
+    API key env var: `GEMINI_API_KEY` (preferred) or `GOOGLE_API_KEY` (fallback).
     """
 
     def __init__(self, api_key: str):
-        super().__init__(
-            api_key=api_key,
-            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        from google import genai
+
+        self._genai = genai
+        self._client = genai.Client(api_key=api_key)
+
+    def list_models(self) -> list[str]:
+        """Best-effort model listing — used by the CLI preflight."""
+        try:
+            names: list[str] = []
+            for m in self._client.models.list():
+                n = getattr(m, "name", "") or ""
+                # Google returns "models/<id>" — strip the prefix for display/config
+                names.append(n.split("/", 1)[1] if n.startswith("models/") else n)
+            return [n for n in names if n]
+        except Exception:
+            return []
+
+    def call_tool(
+        self,
+        *,
+        system: str,
+        user: str,
+        tool_name: str,
+        tool_description: str,
+        tool_schema: dict[str, Any],
+        model: str,
+        temperature: float | None,
+        max_tokens: int,
+    ) -> LLMResponse:
+        from google.genai import types
+
+        # Gemini's function declarations accept an OpenAPI-shaped schema. Strip fields
+        # the subset doesn't support to avoid silent weirdness.
+        clean_schema = _strip_for_gemini(tool_schema)
+
+        tool = types.Tool(
+            function_declarations=[
+                types.FunctionDeclaration(
+                    name=tool_name,
+                    description=tool_description,
+                    parameters=clean_schema,  # type: ignore[arg-type]
+                )
+            ]
         )
+
+        cfg_kwargs: dict[str, Any] = {
+            "system_instruction": system,
+            "tools": [tool],
+            "tool_config": types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(
+                    mode="ANY",
+                    allowed_function_names=[tool_name],
+                )
+            ),
+            "max_output_tokens": max_tokens,
+        }
+        if temperature is not None:
+            cfg_kwargs["temperature"] = temperature
+
+        resp = self._client.models.generate_content(
+            model=model,
+            contents=user,
+            config=types.GenerateContentConfig(**cfg_kwargs),
+        )
+
+        tool_args: dict[str, Any] | None = None
+        raw_text_parts: list[str] = []
+        for cand in resp.candidates or []:
+            content = getattr(cand, "content", None)
+            if not content:
+                continue
+            for part in getattr(content, "parts", None) or []:
+                fc = getattr(part, "function_call", None)
+                if fc and getattr(fc, "name", None) == tool_name:
+                    tool_args = dict(fc.args or {})
+                elif getattr(part, "text", None):
+                    raw_text_parts.append(part.text)
+
+        if tool_args is None:
+            preview = "\n".join(raw_text_parts)[:500]
+            raise RuntimeError(
+                f"gemini response contained no function_call for {tool_name!r}. "
+                f"Text preview: {preview!r}"
+            )
+
+        usage = getattr(resp, "usage_metadata", None)
+        return LLMResponse(
+            tool_args=tool_args,
+            tokens_in=getattr(usage, "prompt_token_count", 0) or 0,
+            tokens_out=getattr(usage, "candidates_token_count", 0) or 0,
+            raw_text="\n".join(raw_text_parts) if raw_text_parts else None,
+        )
+
+
+_GEMINI_UNSUPPORTED_KEYS = {"additionalProperties", "$schema", "$defs", "definitions"}
+
+
+def _strip_for_gemini(schema: Any) -> Any:
+    """Recursively drop JSON-Schema keywords that Gemini's function-calling subset rejects."""
+    if isinstance(schema, dict):
+        return {
+            k: _strip_for_gemini(v)
+            for k, v in schema.items()
+            if k not in _GEMINI_UNSUPPORTED_KEYS
+        }
+    if isinstance(schema, list):
+        return [_strip_for_gemini(v) for v in schema]
+    return schema
 
 
 def make_provider(provider: str, api_key: str) -> Provider:

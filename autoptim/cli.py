@@ -85,6 +85,41 @@ def _resolve_api_key(provider: str) -> str:
     return key
 
 
+def _preflight_gemini(api_key: str, wanted_model: str) -> None:
+    """List installed Gemini models and warn if `wanted_model` is not exposed by the endpoint."""
+    try:
+        from .meta.providers import GeminiProvider
+
+        provider = GeminiProvider(api_key)
+        models = provider.list_models()
+    except Exception as e:
+        console().print(f"[yellow]Could not list Gemini models ({e!s}). Proceeding anyway.[/yellow]")
+        return
+    if not models:
+        console().print("[yellow]Gemini model list came back empty. Proceeding — the endpoint may still accept the requested model.[/yellow]")
+        return
+    gemini_only = [m for m in models if m.startswith("gemini")]
+    # Match exact or with common "-latest"/"-preview" suffixes
+    wanted_prefix = wanted_model.rsplit("-preview", 1)[0].rsplit("-latest", 1)[0]
+    exact = wanted_model in gemini_only
+    similar = [m for m in gemini_only if m.startswith(wanted_prefix)]
+    console().print(
+        f"[green]Gemini OK[/green] · {len(gemini_only)} models available, requesting [cyan]{wanted_model}[/cyan]"
+    )
+    if not exact:
+        console().print(
+            f"[yellow]Note:[/yellow] [cyan]{wanted_model}[/cyan] is not in the account's listed models."
+        )
+        if similar:
+            console().print(f"  Similar available: {', '.join(similar[:6])}")
+        else:
+            likely = [m for m in gemini_only if "pro" in m or "flash" in m][:8]
+            console().print(f"  Some available Gemini models: {', '.join(likely)}")
+        console().print(
+            "  If the request fails with 404/INVALID_ARGUMENT, set the right id in task.yaml → meta.model."
+        )
+
+
 def _preflight_ollama(host: str) -> None:
     client = OllamaClient(host)
     if not client.available():
@@ -113,12 +148,38 @@ def run(
     task = load_task(task_file)
     _preflight_ollama(task.worker.ollama_host)
     key = _resolve_api_key(task.meta.provider)
+    if task.meta.provider == "gemini":
+        _preflight_gemini(key, task.meta.model)
     orch = Orchestrator(task, api_key=key, runs_root=_runs_root())
     reason = orch.run(resume=resume)
     console().print(
         f"\n[bold]Halted[/bold]: {reason.code} — {reason.detail}\n"
         f"Best score: [cyan]{orch.cost.spent_usd:.2f}$ spent[/cyan]"
     )
+
+
+@app.command()
+def models(
+    provider: str = typer.Option("gemini", "--provider", help="Provider to query (only gemini is queryable today)"),
+) -> None:
+    """List the models the configured provider reports as available on your account."""
+    configure("WARNING")
+    if provider != "gemini":
+        console().print(f"[yellow]Listing is only implemented for gemini. Got {provider!r}.[/yellow]")
+        raise typer.Exit(1)
+    key = _resolve_api_key("gemini")
+    from .meta.providers import GeminiProvider
+
+    gp = GeminiProvider(key)
+    models_list = gp.list_models()
+    if not models_list:
+        console().print("[yellow]No models returned.[/yellow]")
+        return
+    table = Table(title=f"{provider} models")
+    table.add_column("id", style="cyan")
+    for m in sorted(models_list):
+        table.add_row(m)
+    console().print(table)
 
 
 @app.command("list")
