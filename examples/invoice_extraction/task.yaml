@@ -12,7 +12,8 @@ metric:
     total:      { match: numeric,  tol: 0.01,       weight: 2 }
     currency:   { match: exact,    weight: 1 }
   aggregate: mean_score
-  target: 0.90
+  target: 0.98   # seed with gemma-4-e4b already hits ~0.91; give the meta-agent room to fix
+                  # the remaining date-format and vendor-name failures
 
 budgets:
   max_iters: 30
