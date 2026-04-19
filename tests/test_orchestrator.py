@@ -10,6 +10,8 @@ import textwrap
 from pathlib import Path
 from typing import Any
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from autoptim.config import load_task
@@ -196,6 +198,30 @@ def test_degenerate_seed_halts_before_meta(example_task: Path, tmp_path: Path, m
     reason = orch.run()
     assert reason.code == "degenerate_seed", reason
     assert meta_call_count["n"] == 0, "meta-agent was called despite broken seed"
+
+
+def test_orchestrator_honors_preset_run_id(example_task: Path, tmp_path: Path, monkeypatch):
+    """The CLI pre-generates a run_id so it can spawn a dashboard window at it; the
+    orchestrator must use that id instead of minting its own."""
+    task = load_task(example_task)
+
+    monkeypatch.setattr(
+        "autoptim.orchestrator.Orchestrator._probe_worker_models",
+        lambda self: ["stub:1"],
+    )
+    from autoptim.meta import agent as agent_mod
+    monkeypatch.setattr(agent_mod, "make_provider", lambda *a, **kw: MagicMock())
+
+    orch = Orchestrator(
+        task,
+        api_key="fake",
+        runs_root=tmp_path / "runs",
+        run_id="preset-foo-bar",
+    )
+    store, state = orch.start_new_run()
+    assert state.run_id == "preset-foo-bar"
+    assert store.run_dir.name == "preset-foo-bar"
+    assert (store.run_dir / "run.yaml").exists()
 
 
 def test_budget_cap_halts_run(example_task: Path, tmp_path: Path, monkeypatch):

@@ -41,12 +41,14 @@ class Orchestrator:
         api_key: str,
         runs_root: str | Path = "runs",
         worker_api_key: str = "not-needed",
+        run_id: str | None = None,
     ):
         self.task = task
         self.api_key = api_key
         self.worker_api_key = worker_api_key
         self.runs_root = Path(runs_root).expanduser().resolve()
         self.runs_root.mkdir(parents=True, exist_ok=True)
+        self._preset_run_id = run_id
 
         self.evaluator: Evaluator = self._build_evaluator()
         self.ground_truth = load_ground_truth(task.ground_truth)
@@ -122,7 +124,7 @@ class Orchestrator:
     # ---- run lifecycle ----
 
     def start_new_run(self) -> tuple[RunStore, RunState]:
-        run_id = new_run_id(self.task.name)
+        run_id = self._preset_run_id or new_run_id(self.task.name)
         frozen = self._frozen_task_yaml()
         store = RunStore.create(self.runs_root, run_id, frozen)
         state = RunState(
