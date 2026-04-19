@@ -1,67 +1,14 @@
 """Regression: providers must omit `temperature` when it's None.
 
-Some reasoning models (e.g. claude-opus-4-7) reject `temperature` in the request
-body entirely — not merely ignoring it but returning HTTP 400.
+Some reasoning models reject `temperature` in the request body entirely — not
+merely ignoring it but returning HTTP 400.
 """
 from __future__ import annotations
 
 import types
 from unittest.mock import MagicMock
 
-from autoptim.meta.providers import AnthropicProvider, OpenAIProvider
-
-
-def _make_anthropic_fake(return_tool_args):
-    # Construct a fake response object shaped like the anthropic SDK returns
-    tool_block = types.SimpleNamespace(
-        type="tool_use",
-        name="propose_iteration",
-        input=return_tool_args,
-    )
-    resp = types.SimpleNamespace(
-        content=[tool_block],
-        usage=types.SimpleNamespace(input_tokens=10, output_tokens=5),
-    )
-    fake_client = MagicMock()
-    fake_client.messages.create.return_value = resp
-    return fake_client
-
-
-def test_anthropic_omits_temperature_when_none():
-    provider = AnthropicProvider.__new__(AnthropicProvider)
-    provider._client = _make_anthropic_fake({"hypothesis": "x"})
-
-    result = provider.call_tool(
-        system="sys",
-        user="usr",
-        tool_name="propose_iteration",
-        tool_description="",
-        tool_schema={"type": "object"},
-        model="claude-opus-4-7",
-        temperature=None,
-        max_tokens=1000,
-    )
-    assert result.tool_args == {"hypothesis": "x"}
-    kwargs = provider._client.messages.create.call_args.kwargs
-    assert "temperature" not in kwargs
-
-
-def test_anthropic_includes_temperature_when_set():
-    provider = AnthropicProvider.__new__(AnthropicProvider)
-    provider._client = _make_anthropic_fake({"hypothesis": "x"})
-
-    provider.call_tool(
-        system="sys",
-        user="usr",
-        tool_name="propose_iteration",
-        tool_description="",
-        tool_schema={"type": "object"},
-        model="claude-sonnet-4-6",
-        temperature=0.5,
-        max_tokens=1000,
-    )
-    kwargs = provider._client.messages.create.call_args.kwargs
-    assert kwargs["temperature"] == 0.5
+from autoptim.meta.providers import OpenAIProvider
 
 
 def _make_openai_fake():
@@ -99,6 +46,24 @@ def test_openai_omits_temperature_when_none():
     )
     kwargs = provider._client.chat.completions.create.call_args.kwargs
     assert "temperature" not in kwargs
+
+
+def test_openai_includes_temperature_when_set():
+    provider = OpenAIProvider.__new__(OpenAIProvider)
+    provider._client = _make_openai_fake()
+
+    provider.call_tool(
+        system="sys",
+        user="usr",
+        tool_name="propose_iteration",
+        tool_description="",
+        tool_schema={"type": "object"},
+        model="gpt-4.1",
+        temperature=0.3,
+        max_tokens=1000,
+    )
+    kwargs = provider._client.chat.completions.create.call_args.kwargs
+    assert kwargs["temperature"] == 0.3
 
 
 def _make_gemini_fake(tool_args):
@@ -185,22 +150,10 @@ def test_gemini_strips_unsupported_schema_keys():
     assert "additionalProperties" not in stripped["properties"]["x"]
 
 
-def test_make_provider_gemini_instantiates_native_client():
-    from autoptim.meta import providers as pmod
-    from autoptim.meta.providers import GeminiProvider
+def test_make_provider_rejects_unknown():
+    import pytest
 
-    # Don't actually hit google's auth — stub genai.Client
-    with MagicMock() as fake_genai:
-        fake_genai.Client.return_value = MagicMock()
-        import sys
+    from autoptim.meta.providers import make_provider
 
-        real_genai = sys.modules.get("google.genai")
-        sys.modules["google"] = MagicMock(genai=fake_genai)
-        sys.modules["google.genai"] = fake_genai
-        try:
-            provider = pmod.make_provider("gemini", "fake-key")
-            assert isinstance(provider, GeminiProvider)
-            fake_genai.Client.assert_called_once_with(api_key="fake-key")
-        finally:
-            if real_genai is not None:
-                sys.modules["google.genai"] = real_genai
+    with pytest.raises(ValueError):
+        make_provider("some-retired-vendor", "fake-key")

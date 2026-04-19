@@ -1,4 +1,4 @@
-"""Thin adapter over Anthropic / OpenAI / OpenRouter so the meta-agent is provider-agnostic.
+"""Thin adapter over OpenAI / OpenRouter / Gemini so the meta-agent is provider-agnostic.
 
 Every provider call must: (a) accept system + user + one tool schema, (b) return a
 parsed dict from the tool call, and (c) report tokens_in / tokens_out.
@@ -31,62 +31,6 @@ class Provider(Protocol):
         temperature: float | None,
         max_tokens: int,
     ) -> LLMResponse: ...
-
-
-class AnthropicProvider:
-    def __init__(self, api_key: str):
-        import anthropic  # lazy import so OpenAI-only users don't need it
-
-        self._client = anthropic.Anthropic(api_key=api_key)
-
-    def call_tool(
-        self,
-        *,
-        system: str,
-        user: str,
-        tool_name: str,
-        tool_description: str,
-        tool_schema: dict[str, Any],
-        model: str,
-        temperature: float | None,
-        max_tokens: int,
-    ) -> LLMResponse:
-        kwargs: dict[str, Any] = {
-            "model": model,
-            "system": system,
-            "messages": [{"role": "user", "content": user}],
-            "tools": [
-                {
-                    "name": tool_name,
-                    "description": tool_description,
-                    "input_schema": tool_schema,
-                }
-            ],
-            "tool_choice": {"type": "tool", "name": tool_name},
-            "max_tokens": max_tokens,
-        }
-        if temperature is not None:
-            kwargs["temperature"] = temperature
-        resp = self._client.messages.create(**kwargs)
-        tool_args: dict[str, Any] | None = None
-        raw_text_parts: list[str] = []
-        for block in resp.content:
-            btype = getattr(block, "type", None)
-            if btype == "tool_use" and getattr(block, "name", None) == tool_name:
-                tool_args = dict(block.input)  # type: ignore[arg-type]
-            elif btype == "text":
-                raw_text_parts.append(block.text)  # type: ignore[attr-defined]
-        if tool_args is None:
-            raise RuntimeError(
-                f"anthropic response contained no tool_use for {tool_name!r}: {resp.content!r}"
-            )
-        usage = resp.usage
-        return LLMResponse(
-            tool_args=tool_args,
-            tokens_in=getattr(usage, "input_tokens", 0) or 0,
-            tokens_out=getattr(usage, "output_tokens", 0) or 0,
-            raw_text="\n".join(raw_text_parts) if raw_text_parts else None,
-        )
 
 
 class OpenAIProvider:
@@ -137,7 +81,7 @@ class OpenAIProvider:
                 tool_args = json.loads(call.function.arguments)
         if tool_args is None:
             raise RuntimeError(
-                f"openai response contained no function call for {tool_name!r}: {msg!r}"
+                f"provider response contained no function call for {tool_name!r}: {msg!r}"
             )
         usage = resp.usage
         return LLMResponse(
@@ -276,8 +220,6 @@ def _strip_for_gemini(schema: Any) -> Any:
 
 
 def make_provider(provider: str, api_key: str) -> Provider:
-    if provider == "anthropic":
-        return AnthropicProvider(api_key)
     if provider == "openai":
         return OpenAIProvider(api_key)
     if provider == "openrouter":

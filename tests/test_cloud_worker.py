@@ -120,7 +120,7 @@ def test_orchestrator_threads_worker_creds_into_ctx(tmp_path, monkeypatch):
         "budgets:\n  max_iters: 1\n  wall_clock_h: 1\n  frontier_usd: 10\n  per_iter_timeout_s: 30\n"
         "worker:\n  base_url: https://api.groq.com/openai/v1\n"
         "  api_key_env: GROQ_API_KEY\n  default_model: llama-3.1-8b-instant\n"
-        "meta:\n  provider: anthropic\n  model: claude-opus-4-7\n"
+        "meta:\n  provider: openai\n  model: gpt-4.1\n"
     )
     task = load_task(root / "task.yaml")
 

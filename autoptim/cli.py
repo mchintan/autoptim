@@ -38,7 +38,6 @@ def _runs_root() -> Path:
 
 
 _PROVIDER_ENV = {
-    "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     # Gemini accepts either GEMINI_API_KEY (preferred) or GOOGLE_API_KEY (Google's default name).

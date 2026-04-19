@@ -60,8 +60,8 @@ def example_task(tmp_path: Path) -> Path:
               frontier_usd: 10
               per_iter_timeout_s: 30
             meta:
-              provider: anthropic
-              model: claude-opus-4-7
+              provider: openai
+              model: gpt-4.1
             worker:
               base_url: http://127.0.0.1:99999/v1
               default_model: stub-model

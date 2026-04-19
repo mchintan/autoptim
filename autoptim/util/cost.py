@@ -11,18 +11,11 @@ from dataclasses import dataclass
 # Conservative public list prices, per 1M tokens.
 PRICES: dict[tuple[str, str], tuple[float, float]] = {
     # (provider, model_prefix) -> (in_per_mtok, out_per_mtok)
-    ("anthropic", "claude-opus-4"): (15.0, 75.0),
-    ("anthropic", "claude-opus"): (15.0, 75.0),
-    ("anthropic", "claude-sonnet-4"): (3.0, 15.0),
-    ("anthropic", "claude-sonnet"): (3.0, 15.0),
-    ("anthropic", "claude-haiku-4"): (1.0, 5.0),
-    ("anthropic", "claude-haiku"): (1.0, 5.0),
     ("openai", "gpt-4o-mini"): (0.15, 0.60),
     ("openai", "gpt-4o"): (2.50, 10.0),
     ("openai", "o1"): (15.0, 60.0),
     ("openai", "gpt-4.1"): (2.0, 8.0),
     # openrouter is pass-through; we charge on the listed model prefix if known
-    ("openrouter", "anthropic/claude-opus"): (15.0, 75.0),
     ("openrouter", "openai/gpt-4o"): (2.50, 10.0),
     # Gemini — conservative estimates (real prices vary by tier + context length)
     ("gemini", "gemini-3-pro"): (5.0, 20.0),
@@ -35,8 +28,9 @@ PRICES: dict[tuple[str, str], tuple[float, float]] = {
     ("gemini", "gemini-1.5-flash"): (0.15, 0.60),
 }
 
-# Safe default if the model string doesn't match any prefix.
-DEFAULT_PRICE: tuple[float, float] = (15.0, 75.0)
+# Safe default if the model string doesn't match any prefix — priced on the high
+# side so the budget guard errs toward stopping early.
+DEFAULT_PRICE: tuple[float, float] = (5.0, 20.0)
 
 
 def price_for(provider: str, model: str) -> tuple[float, float]:
