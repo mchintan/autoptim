@@ -61,8 +61,8 @@ def example_task(tmp_path: Path) -> Path:
               provider: anthropic
               model: claude-opus-4-7
             worker:
-              ollama_host: http://localhost:99999
-              default_model: none
+              base_url: http://127.0.0.1:99999/v1
+              default_model: stub-model
             """
         )
     )
@@ -72,11 +72,11 @@ def example_task(tmp_path: Path) -> Path:
 def test_orchestrator_monotonic_with_stub(example_task: Path, tmp_path: Path, monkeypatch):
     task = load_task(example_task)
 
-    # Fake the Ollama probe so constructor doesn't care about it
-    from autoptim.worker import ollama_client as oc
-
-    monkeypatch.setattr(oc.OllamaClient, "available", lambda self: True)
-    monkeypatch.setattr(oc.OllamaClient, "list_models", lambda self: ["stub:1"])
+    # Stub worker model discovery (no real endpoint)
+    monkeypatch.setattr(
+        "autoptim.orchestrator.Orchestrator._probe_worker_models",
+        lambda self: ["stub:1"],
+    )
 
     # Don't touch real providers — stub out the provider factory
     from autoptim.meta import agent as agent_mod
@@ -161,9 +161,10 @@ def test_degenerate_seed_halts_before_meta(example_task: Path, tmp_path: Path, m
     """If every seed prediction is null, refuse to call the meta-agent at all."""
     task = load_task(example_task)
 
-    from autoptim.worker import ollama_client as oc
-    monkeypatch.setattr(oc.OllamaClient, "available", lambda self: True)
-    monkeypatch.setattr(oc.OllamaClient, "list_models", lambda self: ["stub:1"])
+    monkeypatch.setattr(
+        "autoptim.orchestrator.Orchestrator._probe_worker_models",
+        lambda self: ["stub:1"],
+    )
 
     from autoptim.meta import agent as agent_mod
 
@@ -200,9 +201,10 @@ def test_degenerate_seed_halts_before_meta(example_task: Path, tmp_path: Path, m
 def test_budget_cap_halts_run(example_task: Path, tmp_path: Path, monkeypatch):
     task = load_task(example_task)
 
-    from autoptim.worker import ollama_client as oc
-    monkeypatch.setattr(oc.OllamaClient, "available", lambda self: True)
-    monkeypatch.setattr(oc.OllamaClient, "list_models", lambda self: ["stub:1"])
+    monkeypatch.setattr(
+        "autoptim.orchestrator.Orchestrator._probe_worker_models",
+        lambda self: ["stub:1"],
+    )
 
     from autoptim.meta import agent as agent_mod
 

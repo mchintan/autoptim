@@ -6,12 +6,12 @@ Your job each turn: read the current `process.py`, the latest evaluation, and th
 
 - Task name: **{{ task_name }}**
 - Metric: **{{ metric_name }}** (higher is better; target = {{ target }})
-- Worker: a **local Ollama** instance. The worker model is cheap and local — you can call it freely inside `process.py`.
+- Worker: an **OpenAI-compatible chat endpoint** (LM Studio locally, or a cloud provider). The worker is cheap — you can call it freely inside `process.py`. Use the base_url + api_key passed through `ctx`.
 - You are the frontier experiment designer. You run once per iteration. Your calls are metered in real dollars — be thoughtful.
 
-## Available Ollama models on this machine
+## Available worker models at this endpoint
 
-{{ ollama_models }}
+{{ worker_models }}
 
 ## Worker contract (frozen — your `process.py` MUST follow this)
 

@@ -113,7 +113,7 @@ class IterationRecord:
     frontier_tokens_out: int
     frontier_usd: float
     worker_seconds: float
-    ollama_calls: int
+    worker_calls: int
     predicted_delta: float | None
     error: str | None = None
 

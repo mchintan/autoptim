@@ -23,7 +23,6 @@ from .storage.diff import unified as diff_unified
 from .storage.run_store import RunStore, new_run_id, find_latest_for_task
 from .util.cost import CostTracker
 from .util.logging import console, logger
-from .worker.ollama_client import OllamaClient
 from .worker.sandbox import run_process_py
 
 log = logger("autoptim.orchestrator")
@@ -41,7 +40,7 @@ class Orchestrator:
         task: TaskConfig,
         api_key: str,
         runs_root: str | Path = "runs",
-        worker_api_key: str | None = None,
+        worker_api_key: str = "not-needed",
     ):
         self.task = task
         self.api_key = api_key
@@ -57,8 +56,7 @@ class Orchestrator:
         if not self.ground_truth:
             raise RuntimeError(f"no ground truth entries in {task.ground_truth}")
 
-        self.ollama = OllamaClient(task.worker.ollama_host)
-        self.ollama_models = self._probe_ollama()
+        self.worker_models = self._probe_worker_models()
 
         self.meta = MetaAgent(
             provider=task.meta.provider,
@@ -67,7 +65,7 @@ class Orchestrator:
             task_name=task.name,
             metric_name=f"{task.metric.type}/{task.metric.aggregate}",
             target=task.metric.target,
-            ollama_models=self.ollama_models,
+            worker_models=self.worker_models,
             max_history=task.meta.max_history,
             temperature=task.meta.temperature,
         )
@@ -103,18 +101,23 @@ class Orchestrator:
         out = [i for i in out if i["id"] in gt_ids]
         return out
 
-    def _probe_ollama(self) -> list[str]:
-        if not self.ollama.available():
-            log.warning(
-                "Ollama not reachable at %s — worker will fail until you start it.",
-                self.task.worker.ollama_host,
-            )
-            return []
+    def _probe_worker_models(self) -> list[str]:
+        """Best-effort listing of models at the OpenAI-compat endpoint.
+
+        Many providers expose /v1/models. If not, return just the configured default —
+        the meta-agent uses this to know what's safe to swap to.
+        """
+        import openai
+
         try:
-            return self.ollama.list_models()
-        except Exception as e:  # pragma: no cover
-            log.warning("ollama list_models failed: %s", e)
-            return []
+            client = openai.OpenAI(
+                api_key=self.worker_api_key or "not-needed",
+                base_url=self.task.worker.base_url,
+            )
+            return [m.id for m in client.models.list().data]
+        except Exception as e:
+            log.warning("worker /v1/models failed (%s); the meta-agent will only see the configured default", e)
+            return [self.task.worker.default_model]
 
     # ---- run lifecycle ----
 
@@ -153,7 +156,7 @@ class Orchestrator:
                     frontier_tokens_out=h.get("frontier_tokens_out", 0),
                     frontier_usd=h.get("frontier_usd", 0.0),
                     worker_seconds=h.get("worker_seconds", 0.0),
-                    ollama_calls=h.get("ollama_calls", 0),
+                    worker_calls=h.get("worker_calls", h.get("ollama_calls", 0)),
                     predicted_delta=h.get("predicted_delta"),
                     error=h.get("error"),
                 )
@@ -351,13 +354,10 @@ class Orchestrator:
             spinner="dots",
         ):
             worker_ctx: dict[str, Any] = {
-                "ollama_host": self.task.worker.ollama_host,
                 "model_hint": self.task.worker.default_model,
-                "backend": self.task.worker.backend,
+                "base_url": self.task.worker.base_url,
+                "api_key": self.worker_api_key,
             }
-            if self.task.worker.backend == "openai_compat":
-                worker_ctx["base_url"] = self.task.worker.base_url
-                worker_ctx["api_key"] = self.worker_api_key or ""
             sandbox_result = run_process_py(
                 process_py_path=iter_dir / "process.py",
                 inputs=self.inputs,
@@ -392,7 +392,7 @@ class Orchestrator:
                 frontier_tokens_out=meta_tokens_out,
                 frontier_usd=self.cost.spent_usd - (state.total_frontier_usd),
                 worker_seconds=sandbox_result.elapsed_s,
-                ollama_calls=0,
+                worker_calls=0,
                 predicted_delta=predicted_delta,
                 error=sandbox_result.error,
             )
@@ -440,7 +440,7 @@ class Orchestrator:
             frontier_tokens_out=meta_tokens_out,
             frontier_usd=self.cost.spent_usd - state.total_frontier_usd,
             worker_seconds=sandbox_result.elapsed_s,
-            ollama_calls=0,  # counted by worker if it wants; not measured in v1
+            worker_calls=0,  # counted by worker if it wants; not measured in v1
             predicted_delta=predicted_delta,
             error=None,
         )
@@ -550,14 +550,14 @@ class Orchestrator:
             body += f"\n[bold]Worker stderr (last 10 lines):[/bold]\n[dim]{err_tail}[/dim]\n"
         body += (
             "\n[bold]Likely causes + fixes:[/bold]\n"
-            "  • Ollama's llama runner crashed → restart it; test with "
-            f"[bold]ollama run {self.task.worker.default_model} \"hi\"[/bold]\n"
-            "  • Model not fully pulled / corrupted → "
-            f"[bold]ollama rm {self.task.worker.default_model} && ollama pull {self.task.worker.default_model}[/bold]\n"
-            "  • Out of memory — check [bold]ollama ps[/bold] and free RAM/VRAM\n"
-            "  • seed_process.py has a bug unrelated to Ollama → "
+            f"  • Worker endpoint [cyan]{self.task.worker.base_url}[/cyan] is unreachable or the "
+            f"loaded model does not match [cyan]{self.task.worker.default_model}[/cyan].\n"
+            "  • If using LM Studio: open the app, click 'Start Server' on the chosen model, "
+            "confirm it responds to a manual chat in the UI.\n"
+            "  • If using a cloud provider: verify the API key is active and the model id is valid.\n"
+            f"  • seed_process.py may have a bug unrelated to the endpoint → "
             f"[bold]autoptim replay {store.run_id} 0[/bold] to reproduce with fresh logs\n\n"
-            "Once fixed, re-run. [dim](You can also inspect the full logs under runs/<run_id>/iter_000/.)[/dim]"
+            "Once fixed, re-run. [dim](Full logs live at runs/<run_id>/iter_000/.)[/dim]"
         )
         console().print(Panel(body, title="seed diagnosis", border_style="red"))
         return HaltReason("degenerate_seed", "seed iteration produced no usable predictions; see diagnostic panel")

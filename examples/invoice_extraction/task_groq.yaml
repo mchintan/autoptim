@@ -26,8 +26,7 @@ meta:
   max_history: 5
 
 worker:
-  backend: openai_compat
   base_url: https://api.groq.com/openai/v1
   api_key_env: GROQ_API_KEY
-  default_model: llama-3.1-8b-instant   # free + fast; swap for llama-3.3-70b-versatile if you want more capability
+  default_model: llama-3.1-8b-instant   # free + fast; swap for llama-3.3-70b-versatile for more capability
   memory_mb: 4096

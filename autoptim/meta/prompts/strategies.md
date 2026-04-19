@@ -34,13 +34,13 @@ Change the shape of the process. Not just the prompt — the flow.
 
 ## model_param_swap
 
-Change the model or its sampling parameters. Only use Ollama models you've verified are installed.
+Change the model or its sampling parameters. Only use models confirmed available at `ctx["base_url"]` (see the "Available worker models" list in the system prompt).
 
-- Swap to a larger / stronger installed model (check `ctx["ollama_host"]/api/tags` at run start)
+- Swap to a larger / stronger model listed as available
 - Swap to a smaller model and compensate with better prompting (faster iteration)
 - Lower temperature for determinism, raise it for diversity + self-consistency voting
-- Raise `num_ctx` when documents are long
-- Adjust `top_p`
+- Adjust `top_p`, `max_tokens`
+- If the endpoint supports it, try JSON-mode / response_format
 
 ## error_pattern_fix
 

@@ -18,7 +18,6 @@ from .orchestrator import Orchestrator
 from .storage.diff import unified as diff_unified
 from .storage.run_store import RunStore, list_runs
 from .util.logging import configure, console
-from .worker.ollama_client import OllamaClient
 
 app = typer.Typer(add_completion=False, help="autoptim — agentic loop for verifiable processes.")
 
@@ -123,10 +122,19 @@ def _resolve_worker_api_key(api_key_env: str) -> str:
     return key
 
 
-def _preflight_cloud_worker(base_url: str, model: str, api_key: str) -> None:
-    """Smoke-test a cloud OpenAI-compat worker endpoint before starting the loop."""
+def _preflight_worker(task: Any) -> str:
+    """Preflight the OpenAI-compat worker endpoint. Returns the resolved API key
+    (or a dummy for auth-less local servers like LM Studio / llama.cpp)."""
     import openai
 
+    if task.worker.api_key_env:
+        api_key = _resolve_worker_api_key(task.worker.api_key_env)
+    else:
+        # LM Studio / llama.cpp accept any non-empty string in the Authorization header.
+        api_key = "not-needed"
+
+    base_url = task.worker.base_url
+    model = task.worker.default_model
     try:
         client = openai.OpenAI(api_key=api_key, base_url=base_url)
         resp = client.chat.completions.create(
@@ -137,32 +145,20 @@ def _preflight_cloud_worker(base_url: str, model: str, api_key: str) -> None:
         )
         reply = (resp.choices[0].message.content or "").strip()[:80]
         console().print(
-            f"[green]Cloud worker OK[/green] · [cyan]{model}[/cyan] @ {base_url} replied: {reply!r}"
+            f"[green]Worker OK[/green] · [cyan]{model}[/cyan] @ {base_url} replied: {reply!r}"
         )
     except Exception as e:
+        hint = (
+            "For LM Studio: make sure the server is running (green 'Start Server' in the app) "
+            "and the model in task.yaml matches what's currently loaded.\n"
+            "For cloud providers: verify the API key and that the model id exists on your account."
+        )
         console().print(
-            f"[red]Cloud worker rejected smoke test for [cyan]{model}[/cyan] @ {base_url}:[/red] "
-            f"{type(e).__name__}: {e!s}\n\n"
-            f"Check: (a) model id is valid on that provider, (b) API key still active, "
-            f"(c) base_url is correct (must end with /v1 for OpenAI-compat endpoints)."
+            f"[red]Worker rejected smoke test for [cyan]{model}[/cyan] @ {base_url}:[/red] "
+            f"{type(e).__name__}: {e!s}\n\n{hint}"
         )
         raise typer.Exit(2)
-
-
-def _preflight_worker(task: Any) -> str | None:
-    """Preflight the worker tier. Returns the resolved API key if cloud, else None."""
-    if task.worker.backend == "openai_compat":
-        if not task.worker.base_url or not task.worker.api_key_env:
-            console().print(
-                "[red]worker.backend=openai_compat requires both base_url and api_key_env in task.yaml[/red]"
-            )
-            raise typer.Exit(2)
-        key = _resolve_worker_api_key(task.worker.api_key_env)
-        _preflight_cloud_worker(task.worker.base_url, task.worker.default_model, key)
-        return key
-    # Native Ollama
-    _preflight_ollama(task.worker.ollama_host, task.worker.default_model)
-    return None
+    return api_key
 
 
 def _preflight_gemini(api_key: str, wanted_model: str) -> None:
@@ -200,46 +196,6 @@ def _preflight_gemini(api_key: str, wanted_model: str) -> None:
         )
 
 
-def _preflight_ollama(host: str, worker_model: str) -> None:
-    client = OllamaClient(host)
-    if not client.available():
-        console().print(
-            f"[red]Ollama not reachable at {host}.[/red] Start it with `ollama serve` "
-            f"and pull a model (e.g. `ollama pull {worker_model}`) before running."
-        )
-        raise typer.Exit(2)
-    models = client.list_models()
-    if not models:
-        console().print(
-            f"[yellow]Ollama is running but has no models installed. Pull one first, e.g. `ollama pull {worker_model}`.[/yellow]"
-        )
-        raise typer.Exit(2)
-    if worker_model not in models:
-        console().print(
-            f"[red]Worker model [cyan]{worker_model}[/cyan] is not in `ollama list`.[/red] "
-            f"Installed: {', '.join(models[:6])}{'…' if len(models) > 6 else ''}\n"
-            f"Run: [bold]ollama pull {worker_model}[/bold]"
-        )
-        raise typer.Exit(2)
-
-    # Actual chat to verify the runner is healthy, not just the server. Catches
-    # crashed llama-runner / corrupt model / OOM cases that /api/tags misses.
-    ok, detail = client.smoke_test(worker_model)
-    if not ok:
-        console().print(
-            f"[red]Ollama rejected a test chat with [cyan]{worker_model}[/cyan]:[/red] {detail}\n\n"
-            f"Common fixes:\n"
-            f"  • [bold]ollama serve[/bold] is running but the llama runner may have crashed — "
-            f"restart it and try [bold]ollama run {worker_model} \"hi\"[/bold] to confirm it replies.\n"
-            f"  • Re-pull the model: [bold]ollama rm {worker_model} && ollama pull {worker_model}[/bold]\n"
-            f"  • Check [bold]ollama ps[/bold] and system memory — large models may OOM silently.\n\n"
-            f"The harness refuses to proceed because every worker call would fail and the frontier "
-            f"meta-agent would burn tokens against a broken baseline."
-        )
-        raise typer.Exit(2)
-    console().print(
-        f"[green]Ollama OK[/green] · {len(models)} models installed · [cyan]{worker_model}[/cyan] replied in smoke test"
-    )
 
 
 @app.command()
@@ -472,13 +428,10 @@ def replay(
 
     out_dir = store.run_dir / f"replay_{iter_n:03d}_{int(time.time())}"
     ctx: dict[str, Any] = {
-        "ollama_host": task.worker.ollama_host,
         "model_hint": task.worker.default_model,
-        "backend": task.worker.backend,
+        "base_url": task.worker.base_url,
+        "api_key": worker_api_key,
     }
-    if task.worker.backend == "openai_compat":
-        ctx["base_url"] = task.worker.base_url
-        ctx["api_key"] = worker_api_key or ""
     result = run_process_py(
         process_py_path=store.iter_dir(iter_n) / "process.py",
         inputs=inputs,

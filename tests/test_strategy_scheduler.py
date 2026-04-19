@@ -22,7 +22,7 @@ def _rec(i, tag, score, delta):
         frontier_tokens_out=0,
         frontier_usd=0.0,
         worker_seconds=0.0,
-        ollama_calls=0,
+        worker_calls=0,
         predicted_delta=None,
     )
 

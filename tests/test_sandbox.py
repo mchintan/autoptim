@@ -22,7 +22,7 @@ def test_happy_path(tmp_path: Path):
     result = run_process_py(
         process_py_path=proc,
         inputs=[{"id": "a", "path": "/tmp/x", "mime": "text/plain"}],
-        ctx={"ollama_host": "http://localhost:11434", "model_hint": "qwen2.5:7b"},
+        ctx={"base_url": "http://127.0.0.1:1234/v1", "model_hint": "local-model", "api_key": "x"},
         out_dir=tmp_path / "out",
         timeout_s=30,
         memory_mb=512,
@@ -44,7 +44,7 @@ def test_timeout_is_enforced(tmp_path: Path):
     result = run_process_py(
         process_py_path=proc,
         inputs=[{"id": "a", "path": "/tmp/x", "mime": "text/plain"}],
-        ctx={"ollama_host": "http://localhost:11434", "model_hint": "qwen2.5:7b"},
+        ctx={"base_url": "http://127.0.0.1:1234/v1", "model_hint": "local-model", "api_key": "x"},
         out_dir=tmp_path / "out",
         timeout_s=2,
         memory_mb=256,
@@ -64,7 +64,7 @@ def test_raise_is_captured(tmp_path: Path):
     result = run_process_py(
         process_py_path=proc,
         inputs=[{"id": "a", "path": "/tmp/x", "mime": "text/plain"}],
-        ctx={"ollama_host": "http://localhost:11434", "model_hint": "qwen2.5:7b"},
+        ctx={"base_url": "http://127.0.0.1:1234/v1", "model_hint": "local-model", "api_key": "x"},
         out_dir=tmp_path / "out",
         timeout_s=10,
         memory_mb=256,
@@ -78,7 +78,7 @@ def test_missing_run_function(tmp_path: Path):
     result = run_process_py(
         process_py_path=proc,
         inputs=[],
-        ctx={"ollama_host": "http://localhost:11434", "model_hint": "qwen2.5:7b"},
+        ctx={"base_url": "http://127.0.0.1:1234/v1", "model_hint": "local-model", "api_key": "x"},
         out_dir=tmp_path / "out",
         timeout_s=10,
         memory_mb=256,

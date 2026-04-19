@@ -57,19 +57,19 @@ class MetaConfig(BaseModel):
 
 
 class WorkerConfig(BaseModel):
-    # Backend:
-    #   "ollama"         — native Ollama /api/chat at ollama_host (default, local & free)
-    #   "openai_compat"  — any OpenAI-shaped provider (Groq, Together, Fireworks, OpenRouter,
-    #                      Ollama's /v1 compat endpoint). Uses base_url + api_key_env.
-    backend: Literal["ollama", "openai_compat"] = "ollama"
+    """OpenAI-compatible chat-completions worker.
 
-    ollama_host: str = "http://localhost:11434"
-    default_model: str = "gemma4:latest"
-    memory_mb: int = 4096
+    Works with LM Studio, Groq, Together, Fireworks, OpenRouter, vLLM, llama.cpp server,
+    or any service exposing `/v1/chat/completions` in the OpenAI shape.
 
-    # openai_compat-only fields
-    base_url: str | None = None
+    `api_key_env` is optional — omit it for local servers (LM Studio, llama.cpp) that
+    don't check auth. Cloud providers require it.
+    """
+
+    base_url: str = "http://127.0.0.1:1234/v1"
+    default_model: str = "google/gemma-4-e4b"
     api_key_env: str | None = None
+    memory_mb: int = 4096
 
     model_config = {"extra": "forbid"}
 

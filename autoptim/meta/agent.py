@@ -122,7 +122,7 @@ class MetaAgent:
         task_name: str,
         metric_name: str,
         target: float,
-        ollama_models: list[str],
+        worker_models: list[str],
         max_history: int = 5,
         temperature: float | None = None,
     ):
@@ -132,7 +132,7 @@ class MetaAgent:
         self.task_name = task_name
         self.metric_name = metric_name
         self.target = target
-        self.ollama_models = ollama_models
+        self.worker_models = worker_models
         self.max_history = max_history
         self.temperature = temperature
         self._env = Environment(
@@ -149,7 +149,7 @@ class MetaAgent:
             task_name=self.task_name,
             metric_name=self.metric_name,
             target=self.target,
-            ollama_models=", ".join(self.ollama_models) or "(unknown — ollama unreachable)",
+            worker_models=", ".join(self.worker_models) or "(none — worker endpoint unreachable)",
             contract=self._contract_text,
             strategies=self._strategies_text,
         )

@@ -17,7 +17,7 @@ def _rec(i=0, score=0.5):
         frontier_tokens_out=0,
         frontier_usd=0.0,
         worker_seconds=1.0,
-        ollama_calls=0,
+        worker_calls=0,
         predicted_delta=None,
     )
 

@@ -3,12 +3,9 @@
 Deliberately mediocre. One naive prompt, one worker call per doc, no retries,
 no verification. Establishes a baseline the meta-agent can improve on.
 
-Supports two worker backends via `ctx`:
-
-- `ctx["backend"] == "ollama"`        → POST to Ollama's native /api/chat
-- `ctx["backend"] == "openai_compat"` → any OpenAI-shaped endpoint (Groq, Together,
-                                        Fireworks, OpenRouter, Ollama's /v1 compat).
-                                        Uses `ctx["base_url"]` + `ctx["api_key"]`.
+Talks to an OpenAI-compatible `/v1/chat/completions` endpoint — LM Studio,
+llama.cpp server, Groq, Together, Fireworks, OpenRouter, vLLM. Which one is
+determined by `ctx["base_url"]` + `ctx["api_key"]`.
 """
 from __future__ import annotations
 
@@ -24,50 +21,31 @@ def _read_text(path: str) -> str:
 
 
 def _chat(ctx: dict, messages: list[dict], *, temperature: float = 0.2, timeout_s: int = 120) -> str:
-    backend = ctx.get("backend", "ollama")
+    base_url = ctx["base_url"].rstrip("/")
+    api_key = ctx.get("api_key") or "not-needed"
     model = ctx["model_hint"]
 
-    if backend == "openai_compat":
-        base_url = ctx["base_url"].rstrip("/")
-        api_key = ctx["api_key"]
-        r = httpx.post(
-            f"{base_url}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model,
-                "messages": messages,
-                "temperature": temperature,
-            },
-            timeout=timeout_s,
-        )
-        r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"]
-
-    # Default: Ollama native API
-    host = ctx["ollama_host"].rstrip("/")
     r = httpx.post(
-        f"{host}/api/chat",
+        f"{base_url}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
         json={
             "model": model,
             "messages": messages,
-            "stream": False,
-            "options": {"temperature": temperature},
+            "temperature": temperature,
         },
-        timeout=min(timeout_s, 120),
+        timeout=timeout_s,
     )
     r.raise_for_status()
-    return r.json()["message"]["content"]
+    return r.json()["choices"][0]["message"]["content"]
 
 
 def _parse_json_loose(text: str) -> dict[str, Any]:
     text = text.strip()
-    # Strip common markdown fencing
     if text.startswith("```"):
         text = text.strip("`")
-        # After stripping backticks we may have a leading "json\n"
         if text.lower().startswith("json"):
             text = text[4:].lstrip()
     try:
@@ -115,9 +93,8 @@ def run(inputs: list[dict], ctx: dict) -> list[dict]:
             )
             parsed = _parse_json_loose(raw)
             predictions.append({"id": item["id"], "prediction": parsed})
-            # Preview of raw output so the meta-agent can see what the worker actually returned
-            # (this ends up in worker_stdout.log, which the orchestrator tails into the next
-            # iteration's prompt).
+            # Preview the raw LLM output so the meta-agent (which gets the worker log tail)
+            # can see what the worker actually received back.
             preview = raw.replace("\n", " ")[:150]
             log(f"{item['id']}: ok ({len(raw)} chars) keys={sorted(parsed)} preview={preview!r}")
         except Exception as e:
