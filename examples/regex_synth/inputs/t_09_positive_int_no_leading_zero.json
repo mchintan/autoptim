@@ -1,0 +1,5 @@
+{
+  "task": "Match a non-negative integer with no leading zeros. 0 is allowed on its own but other numbers must not start with 0.",
+  "positives": ["0", "1", "9", "42", "100", "9999999"],
+  "negatives": ["01", "007", "-1", "1.5", "0.0", "", "abc", " 1", "1 "]
+}

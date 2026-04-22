@@ -1,0 +1,27 @@
+name: regex_synth
+inputs_dir: ./inputs
+ground_truth: ./ground_truth.jsonl
+seed_process: ./seed_process.py
+
+metric:
+  type: custom
+  eval_py: ./eval.py
+  aggregate: mean_score     # ignored by custom evaluator; required by schema
+  target: 0.95
+
+budgets:
+  max_iters: 25
+  wall_clock_h: 2
+  frontier_usd: 5
+  per_iter_timeout_s: 180
+
+meta:
+  provider: gemini
+  model: gemini-3.1-flash-lite-preview
+  max_history: 5
+
+worker:
+  # Default points at LM Studio; swap to a Groq task if you don't have LM Studio running.
+  base_url: http://127.0.0.1:1234/v1
+  default_model: google/gemma-4-e4b
+  memory_mb: 4096

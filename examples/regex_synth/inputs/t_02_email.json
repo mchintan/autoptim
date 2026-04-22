@@ -1,0 +1,5 @@
+{
+  "task": "Match a simple email: some.identifier@host.tld where host.tld has at least one dot and letters only.",
+  "positives": ["alice@example.com", "bob.jones@acme.io", "x+y@mail.co.uk", "hi123@test.net"],
+  "negatives": ["alice@", "@example.com", "alice", "alice@localhost", "alice@example", "alice @example.com"]
+}

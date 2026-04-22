@@ -1,0 +1,5 @@
+{
+  "task": "Match a CSS hex color: # followed by exactly 3 or 6 hex digits (case-insensitive).",
+  "positives": ["#fff", "#FFF", "#abc123", "#ABC123", "#000000", "#a1b"],
+  "negatives": ["fff", "#ff", "#fffff", "#gggggg", "#abc12", "#1234567", "# fff"]
+}

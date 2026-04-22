@@ -1,0 +1,5 @@
+{
+  "task": "Match a US phone number formatted as (xxx) xxx-xxxx with exactly one space after the area code and a hyphen between the last two groups.",
+  "positives": ["(555) 123-4567", "(415) 867-5309", "(800) 000-0000"],
+  "negatives": ["555-123-4567", "(555)123-4567", "(555)  123-4567", "555 123 4567", "(55) 123-4567", "(5555) 123-4567", "(555) 123 4567"]
+}

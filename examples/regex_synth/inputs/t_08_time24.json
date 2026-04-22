@@ -1,0 +1,5 @@
+{
+  "task": "Match a 24-hour time in HH:MM format. Hours 00-23, minutes 00-59, always two digits each.",
+  "positives": ["00:00", "09:30", "13:45", "23:59", "12:00", "07:07"],
+  "negatives": ["24:00", "13:60", "1:5", "1:45", "13:5", "25:99", "13-45", "13 45", "13:45:00"]
+}

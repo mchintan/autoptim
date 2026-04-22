@@ -1,0 +1,5 @@
+{
+  "task": "Match US 5-digit zip codes (exactly 5 digits, nothing else).",
+  "positives": ["90210", "12345", "00501", "99999", "48104"],
+  "negatives": ["1234", "123456", "abcde", "90210 ", " 90210", "902-10", "90a10"]
+}

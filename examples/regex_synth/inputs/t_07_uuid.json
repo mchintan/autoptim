@@ -1,0 +1,5 @@
+{
+  "task": "Match a UUID version 4 string (8-4-4-4-12 hex digits with hyphens; letters may be lowercase or uppercase).",
+  "positives": ["550e8400-e29b-41d4-a716-446655440000", "123E4567-E89B-12D3-A456-426614174000", "00000000-0000-0000-0000-000000000000"],
+  "negatives": ["550e8400e29b41d4a716446655440000", "550e8400-e29b-41d4-a716-44665544000", "550e8400-e29b-41d4-a716-4466554400000", "not-a-uuid-at-all", "550g8400-e29b-41d4-a716-446655440000"]
+}

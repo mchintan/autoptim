@@ -1,0 +1,10 @@
+{"id": "t_01_zip", "fields": {"description": "5-digit US zip code"}}
+{"id": "t_02_email", "fields": {"description": "simple email with dotted TLD"}}
+{"id": "t_03_hex_color", "fields": {"description": "#rgb or #rrggbb hex color"}}
+{"id": "t_04_phone_us", "fields": {"description": "(xxx) xxx-xxxx US phone number"}}
+{"id": "t_05_ipv4", "fields": {"description": "valid IPv4 address (0-255 octets, no leading zeros)"}}
+{"id": "t_06_semver", "fields": {"description": "SemVer version with optional pre-release"}}
+{"id": "t_07_uuid", "fields": {"description": "UUID 8-4-4-4-12 hex"}}
+{"id": "t_08_time24", "fields": {"description": "HH:MM 24-hour clock"}}
+{"id": "t_09_positive_int_no_leading_zero", "fields": {"description": "non-negative integer, no leading zeros"}}
+{"id": "t_10_iso_date", "fields": {"description": "YYYY-MM-DD date in 1900-2099"}}

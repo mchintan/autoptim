@@ -1,0 +1,5 @@
+{
+  "task": "Match a valid IPv4 address (four octets 0-255 separated by dots, no leading zeros allowed except the number 0 itself).",
+  "positives": ["192.168.1.1", "0.0.0.0", "255.255.255.255", "8.8.8.8", "127.0.0.1"],
+  "negatives": ["256.1.1.1", "1.2.3", "1.2.3.4.5", "01.1.1.1", "192.168.1", "1.2.3.a", "192.168.1.1 ", " 192.168.1.1"]
+}
