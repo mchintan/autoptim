@@ -185,7 +185,7 @@ See [CONTRACT.md](CONTRACT.md) for the `process.py` interface.
 
 ## Examples
 
-Three shipped examples spanning the main use-case shapes. Pick whichever matches your problem:
+Four shipped examples spanning the main use-case shapes. Pick whichever matches your problem:
 
 ### [`invoice_extraction/`](examples/invoice_extraction/) — LLM pipeline, declarative metric
 
@@ -197,6 +197,17 @@ autoptim run examples/invoice_extraction/task_groq.yaml        # Groq cloud
 ```
 
 Clone this template when your problem is **"extract structured JSON from unstructured text, score against a field schema."**
+
+### [`support_triage/`](examples/support_triage/) — LLM pipeline, declarative metric, different domain
+
+Classify and extract from customer support tickets: `category`, `priority`, `sentiment`, `customer_id` (nullable), `requested_action`. Same `schema_match` machinery as `invoice_extraction` but a different domain, so it's the concrete template for adapting the harness to your own ticketing / inquiry workflow. Ships 12 hand-authored tickets balanced across enum values and `customer_id` presence.
+
+```bash
+autoptim run examples/support_triage/task.yaml                 # LM Studio
+autoptim run examples/support_triage/task_groq.yaml            # Groq cloud
+```
+
+Clone this template when your problem is **"extract a typed-field schema from unstructured text with enum vocabularies."**
 
 ### [`regex_synth/`](examples/regex_synth/) — LLM pipeline, executable metric
 
