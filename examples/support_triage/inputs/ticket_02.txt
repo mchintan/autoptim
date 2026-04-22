@@ -1,0 +1,9 @@
+From: production-ops@megacorp.io
+Subject: URGENT — API returning 500s for last 20 minutes
+
+Our production systems are down. Every call to /v2/transactions is returning
+HTTP 500 with "internal error". Started around 14:02 UTC. This is affecting
+customer checkouts right now — we're losing revenue. Please escalate
+immediately.
+
+Account: ACC-MEGA-001

@@ -1,0 +1,10 @@
+Hi there,
+
+Could you walk me through how to change the default timezone on my account?
+I'm currently seeing everything in PST but I'd like to have it as UTC for
+our distributed team. I checked the settings page and couldn't find it.
+
+Not urgent, happy to wait a day or two for the answer.
+
+Cheers,
+Min

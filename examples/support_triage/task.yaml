@@ -1,0 +1,31 @@
+name: support_triage
+inputs_dir: ./inputs
+ground_truth: ./ground_truth.jsonl
+seed_process: ./seed_process.py
+
+metric:
+  type: schema_match
+  schema:
+    category:          { match: exact, weight: 2 }
+    priority:          { match: exact, weight: 2 }
+    sentiment:         { match: exact, weight: 1 }
+    customer_id:       { match: exact, weight: 1 }
+    requested_action:  { match: fuzzy, threshold: 0.5, weight: 1 }
+  aggregate: mean_score
+  target: 0.90
+
+budgets:
+  max_iters: 25
+  wall_clock_h: 2
+  frontier_usd: 5
+  per_iter_timeout_s: 180
+
+meta:
+  provider: gemini
+  model: gemini-3.1-flash-lite-preview
+  max_history: 5
+
+worker:
+  base_url: http://127.0.0.1:1234/v1
+  default_model: google/gemma-4-e4b
+  memory_mb: 4096

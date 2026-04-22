@@ -1,0 +1,9 @@
+Hey,
+
+Would it be possible to add support for exporting reports as .xlsx in addition
+to CSV? A few folks on our team work in Excel and the CSV import loses the
+column types.
+
+No rush — just a nice-to-have for our Q3 planning.
+
+-- Marcus

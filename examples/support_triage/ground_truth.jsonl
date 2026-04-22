@@ -1,0 +1,12 @@
+{"id": "ticket_01", "fields": {"category": "billing", "priority": "medium", "sentiment": "neutral", "customer_id": "C-77214", "requested_action": "review and issue corrected invoice"}}
+{"id": "ticket_02", "fields": {"category": "technical", "priority": "urgent", "sentiment": "negative", "customer_id": "ACC-MEGA-001", "requested_action": "escalate and restore API"}}
+{"id": "ticket_03", "fields": {"category": "feature_request", "priority": "low", "sentiment": "neutral", "customer_id": null, "requested_action": "add xlsx export for reports"}}
+{"id": "ticket_04", "fields": {"category": "billing", "priority": "high", "sentiment": "negative", "customer_id": null, "requested_action": "speak to account manager about rate increase"}}
+{"id": "ticket_05", "fields": {"category": "account", "priority": "medium", "sentiment": "neutral", "customer_id": "u-44921", "requested_action": "resolve login issue before Monday"}}
+{"id": "ticket_06", "fields": {"category": "feedback", "priority": "low", "sentiment": "positive", "customer_id": null, "requested_action": "no response needed"}}
+{"id": "ticket_07", "fields": {"category": "billing", "priority": "medium", "sentiment": "neutral", "customer_id": "NORD-LOG-2024", "requested_action": "switch billing to SEPA direct debit"}}
+{"id": "ticket_08", "fields": {"category": "technical", "priority": "urgent", "sentiment": "negative", "customer_id": "enterprise-3307", "requested_action": "respond within 10 minutes on replication lag"}}
+{"id": "ticket_09", "fields": {"category": "account", "priority": "low", "sentiment": "neutral", "customer_id": null, "requested_action": "explain API keys and how to find one"}}
+{"id": "ticket_10", "fields": {"category": "feature_request", "priority": "low", "sentiment": "positive", "customer_id": "HTWL-2023-004", "requested_action": "add signed audit log export"}}
+{"id": "ticket_11", "fields": {"category": "technical", "priority": "urgent", "sentiment": "negative", "customer_id": "pro-9921-b", "requested_action": "engineer call by EOD to fix integration"}}
+{"id": "ticket_12", "fields": {"category": "account", "priority": "low", "sentiment": "neutral", "customer_id": null, "requested_action": "change default timezone to UTC"}}

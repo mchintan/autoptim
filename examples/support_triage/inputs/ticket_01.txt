@@ -1,0 +1,9 @@
+From: alice@kensington-co.com
+Subject: Invoice #INV-88241 shows wrong amount
+
+Hi team — I just received invoice INV-88241 for $2,400 but our contract is for
+$1,800/month. Could you please review and issue a corrected invoice? This is
+the second month in a row. Customer ID: C-77214.
+
+Thanks,
+Alice

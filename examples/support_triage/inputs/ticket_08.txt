@@ -1,0 +1,8 @@
+SEV1 — database replication lag across all regions is now >30s. Stats dashboard
+is showing stale data and the nightly ETL that depends on replica snapshots is
+failing. We have a regulatory reporting deadline in 4 hours.
+
+Please respond within 10 minutes.
+
+On-call: Derek K.
+Org ID: enterprise-3307

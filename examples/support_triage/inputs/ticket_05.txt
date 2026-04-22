@@ -1,0 +1,7 @@
+Hi,
+
+Can't log in. I get "invalid credentials" even after resetting my password
+twice. Tried both Chrome and Firefox. Not urgent but I do need this fixed by
+Monday for a demo.
+
+Jane (user ID: u-44921)

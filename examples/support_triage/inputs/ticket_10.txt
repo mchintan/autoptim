@@ -1,0 +1,14 @@
+From: sarah.obrien@hartwell-legal.com
+Subject: Feature idea — audit log export
+
+Hello,
+
+Really enjoying the product so far. I'd love to be able to export our audit
+log to a signed JSON or CSV for our compliance team — they need it quarterly
+for SOC 2 prep. Is that on the roadmap? If not, would be happy to chat with
+product.
+
+Customer account: HTWL-2023-004
+
+Regards,
+Sarah O'Brien
