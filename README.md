@@ -183,6 +183,47 @@ predicted Δ: +0.04  ·  tokens: 4,412 in / 918 out
 
 See [CONTRACT.md](CONTRACT.md) for the `process.py` interface.
 
+## Examples
+
+Three shipped examples spanning the main use-case shapes. Pick whichever matches your problem:
+
+### [`invoice_extraction/`](examples/invoice_extraction/) — LLM pipeline, declarative metric
+
+Extract structured fields (`invoice_no`, `date`, `vendor`, `total`, `currency`) from messy text invoices. Scored with `schema_match` — per-field exact/fuzzy/numeric/date matchers with weighted aggregation. Ships 10 hand-authored invoices across multiple currencies and date formats.
+
+```bash
+autoptim run examples/invoice_extraction/task.yaml             # LM Studio
+autoptim run examples/invoice_extraction/task_groq.yaml        # Groq cloud
+```
+
+Clone this template when your problem is **"extract structured JSON from unstructured text, score against a field schema."**
+
+### [`regex_synth/`](examples/regex_synth/) — LLM pipeline, executable metric
+
+Worker LLM writes a Python regex given positive and negative string examples. The evaluator **compiles the regex and tests every example** — no LLM-as-judge. 10 hand-curated tasks covering US zip codes, emails, hex colors, phone numbers, IPv4 addresses, SemVer, UUID, 24h times, integers without leading zeros, and ISO dates.
+
+```bash
+autoptim run examples/regex_synth/task.yaml                    # LM Studio
+autoptim run examples/regex_synth/task_groq.yaml               # Groq cloud
+```
+
+Expected trajectory: seeds land around 0.55–0.70 (common failures: missing anchors, out-of-range IPv4 octets). Mature patterns hit >0.95 in ~10–15 iterations.
+
+Clone this template when your problem is **"LLM writes a small artifact (regex, SQL, glob, config snippet) that you can execute to score correctness."**
+
+### [`quadratic_nn/`](examples/quadratic_nn/) — ML-training optimization, no LLM worker
+
+The meta-agent rewrites a **PyTorch training loop** each iteration. `process.py` trains a small neural network on the fly, then predicts roots of held-out quadratics. No worker-tier LLM calls at all — only the frontier meta-agent spends tokens.
+
+```bash
+pip install -e ".[examples]"                                   # adds torch
+autoptim run examples/quadratic_nn/task.yaml --dashboard
+```
+
+Seed is deliberately underpowered (1 hidden layer of 8 units, 20 SGD steps, raw coefficients as features) and scores 0.23. A mature implementation (discriminant feature + wider net + Adam + more steps) reaches 0.98. Each iteration takes under a second on CPU, so runs finish quickly.
+
+Clone this template when your problem is **"I have a training loop with a programmatic metric and I suspect there's headroom I haven't found yet."**
+
 ## Commands
 
 ```
