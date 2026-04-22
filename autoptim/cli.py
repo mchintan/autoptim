@@ -191,8 +191,18 @@ def _spawn_dashboard_window(run_id: str) -> None:
 
 def _preflight_worker(task: Any) -> str:
     """Preflight the OpenAI-compat worker endpoint. Returns the resolved API key
-    (or a dummy for auth-less local servers like LM Studio / llama.cpp)."""
+    (or a dummy for auth-less local servers like LM Studio / llama.cpp).
+
+    If `worker.no_endpoint` is set, the task's process.py is pure compute (e.g.
+    an ML-training loop) and no chat endpoint is involved. Skip the smoke test.
+    """
     import openai
+
+    if getattr(task.worker, "no_endpoint", False):
+        console().print(
+            "[green]Worker is compute-only[/green] · no chat endpoint preflight needed"
+        )
+        return "not-needed"
 
     if task.worker.api_key_env:
         api_key = _resolve_worker_api_key(task.worker.api_key_env)

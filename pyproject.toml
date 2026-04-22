@@ -25,6 +25,9 @@ dependencies = [
 [project.optional-dependencies]
 pdf = ["pypdf>=4.0"]
 dev = ["pytest>=8.0", "pytest-cov>=5.0"]
+# For the quadratic_nn example and other ML-training optimization tasks.
+# Install with: pip install -e ".[examples]"
+examples = ["torch>=2.1", "numpy>=1.26"]
 
 [project.scripts]
 autoptim = "autoptim.cli:app"

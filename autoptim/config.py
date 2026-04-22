@@ -71,6 +71,11 @@ class WorkerConfig(BaseModel):
     api_key_env: str | None = None
     memory_mb: int = 4096
 
+    # Set to True for tasks whose `process.py` does not call a chat endpoint at
+    # all — e.g. pure compute / ML-training loops. Skips the CLI preflight and
+    # the "what model did the endpoint report" nudge.
+    no_endpoint: bool = False
+
     model_config = {"extra": "forbid"}
 
 
