@@ -1,0 +1,27 @@
+name: maze_solver
+inputs_dir: ./inputs
+ground_truth: ./ground_truth.jsonl
+seed_process: ./seed_process.py
+
+metric:
+  type: custom
+  eval_py: ./eval.py
+  aggregate: mean_score       # ignored by custom evaluator but required by schema
+  target: 0.98
+
+budgets:
+  max_iters: 30
+  wall_clock_h: 2
+  frontier_usd: 5
+  per_iter_timeout_s: 60       # pure Python, 20 small mazes — finishes in ms
+
+meta:
+  provider: gemini
+  model: gemini-3.1-flash-lite-preview
+  max_history: 5
+
+worker:
+  no_endpoint: true            # process.py is pure compute; no chat endpoint
+  base_url: http://127.0.0.1:0/unused
+  default_model: unused
+  memory_mb: 2048
