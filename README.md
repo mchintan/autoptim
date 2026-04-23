@@ -185,7 +185,7 @@ See [CONTRACT.md](CONTRACT.md) for the `process.py` interface.
 
 ## Examples
 
-Four shipped examples spanning the main use-case shapes. Pick whichever matches your problem:
+Five shipped examples spanning the main use-case shapes. Pick whichever matches your problem:
 
 ### [`invoice_extraction/`](examples/invoice_extraction/) — LLM pipeline, declarative metric
 
@@ -234,6 +234,39 @@ autoptim run examples/quadratic_nn/task.yaml --dashboard
 Seed is deliberately underpowered (1 hidden layer of 8 units, 20 SGD steps, raw coefficients as features) and scores 0.23. A mature implementation (discriminant feature + wider net + Adam + more steps) reaches 0.98. Each iteration takes under a second on CPU, so runs finish quickly.
 
 Clone this template when your problem is **"I have a training loop with a programmatic metric and I suspect there's headroom I haven't found yet."**
+
+### [`maze_solver/`](examples/maze_solver/) — algorithm optimization, no LLM worker
+
+The meta-agent rewrites a pathfinder each iteration. `process.py` solves 20 grid mazes (mix of perfect and braided) and returns a `[[x, y], ...]` path from `S` to `G`. The evaluator validates every step and scores `optimal_len / your_path_len` per maze. No worker-tier LLM calls.
+
+```bash
+autoptim run examples/maze_solver/task.yaml --dashboard
+```
+
+Seed is iterative DFS with a fixed neighbor order — optimal on single-path mazes but visibly suboptimal on braided ones, scoring ~0.77. A correct BFS implementation hits 1.00. The trajectory reads like a textbook: DFS → BFS → A\*. Each iteration finishes in under a second on CPU.
+
+Seed DFS (65 steps) vs. mature BFS (37 steps) on the same 15×15 maze:
+
+```
+            DFS seed                        BFS (optimal)
+     ###############                    ###############
+     #S....#..·····#                    #S····#.......#
+     #·###.###·###·#                    #.###·###.###.#
+     #·..#....···.·#                    #...#·········#
+     #·#.##..###·#·#                    #.#.##..###.#·#
+     #·..#...#···#·#                    #...#...#...#·#
+     #·#.#.###·###·#                    #.#.#.###.###·#
+     #·#.#.#···#.#·#                    #.#.#.#...#.#·#
+     #·###.#·###.#·#                    #.###.#.###.#·#
+     #·....#·#·····#                    #.....#.#·····#
+     #·#####·#·#####                    #.#####.#·#####
+     #·.·····#·#···#                    #.......#·#···#
+     #·.·#####·#·#·#                    #...#####·#·#·#
+     #···#....···#G#                    #...#....···#G#
+     ###############                    ###############
+```
+
+Clone this template when your problem is **"I have an algorithm with a programmatic correctness metric and I want the harness to discover a better algorithm, not a better prompt."**
 
 ## Commands
 
